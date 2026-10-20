@@ -1,4 +1,4 @@
 interface:
-  display_name: "Agent Stack Developer"
-  short_description: "Use Agent Stack through its HTTP API"
-  default_prompt: "Use $agent-stack-developer to integrate Agent Stack through its HTTP API."
+  display_name: "TiDB Link Developer"
+  short_description: "Use TiDB Link through its Customer API"
+  default_prompt: "Use $tidb-link-developer to integrate TiDB Link through its HTTP API."
