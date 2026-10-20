@@ -23,13 +23,13 @@ Rules:
 - Generate one identity per logical action and persist it **before** sending. Retry an uncertain request with the same identity and the same body.
 - An identical replay returns the original result. The same identity with a different body returns `409` (`agent_creation_conflict`, `session_creation_conflict`, …).
 - Never replace an uncertain request with a new identity — that can duplicate the effect.
-- Secrets are not re-delivered: a lost User API Key needs rotation; a lost `connectorKey` needs `POST /api/v1/connectors/{id}/credential/rotate` (while the Connector is inactive).
+- Secrets are not re-delivered: a lost User API Key needs rotation; a lost `connectorKey` needs `POST /api/v1/connectors/{id}/credential/rotate` with `expectedCurrentVersion` (while the Connector is inactive).
 - End User creation has no idempotency key: recover by listing `GET /api/v1/org/users` and matching `externalId`.
 
 ## Versions and ETags
 
 - Template replacement (`PUT /api/v1/org/agent-templates/{templateId}`) needs the exact quoted `ETag` in `If-Match`. Missing → `428 precondition_required`; stale → `412 precondition_failed`. Read the Template again, reapply the change, and use a new `Idempotency-Key`.
-- Connector mutations use `expectedConnectorVersion` in the body. After a `409`, read the Connector and retry with its current version.
+- Connector registration changes (`PATCH`, `activate`, `deactivate`) use `expectedConnectorVersion` in the body; after a `409`, read the Connector and retry with its current version. Credential rotation uses `expectedCurrentVersion`, the `currentVersion` from `GET /api/v1/connectors/{id}/credential`.
 - A receipt is a historical fact, not current state; it never provides a fresh ETag or version.
 
 ## Retry decisions

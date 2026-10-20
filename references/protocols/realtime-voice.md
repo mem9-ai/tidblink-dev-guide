@@ -1,6 +1,6 @@
 # Realtime voice
 
-> Bundled from the TiDB Link documentation (`mem9-ai/agent-stack` `main` @ `4734a32`, `apps/site/src/content/docs/docs/guides/`). Lightly adapted: links point into this kit, and platform-hardware details outside this guide's scope were removed.
+> Bundled from the TiDB Link documentation (`mem9-ai/agent-stack` `main` @ `4734a32`, `apps/site/src/content/docs/docs/guides/`). Lightly adapted: links point into this kit, and platform-hardware and billing details outside this guide's scope were removed.
 
 Use Realtime voice to let an End User speak with an Agent in an existing Session. This guide covers browser and device integration under the implemented `tidb-link.realtime.v1` contract. The [API reference](../openapi.yaml) and [downloadable OpenAPI](../openapi.yaml) describe the REST request and response schemas.
 
@@ -323,8 +323,6 @@ This guide covers speech transport and Full Agent task delegation. Device action
 
 Within `tidb-link.realtime.v1`, added events and optional fields are compatible additions; clients should tolerate unknown server event types and fields. Removing an event or changing its meaning requires a new subprotocol version, with one explicit retirement exception: the canceled direct device path removes `device.command`, `device.command_result` and active `device_ack` under v1. Existing clients must stop sending device results and use Full Agent task delegation for device work. Persisted historical `device_ack` timeline entries remain readable; they do not authorize an active frame.
 
-## Usage and trying voice in Console
-
-An ended Realtime Connection produces one usage fact with `requestPurpose: voice_realtime`, `sessionId`, `realtimeConnectionId` and a null `turnId`. The Organization backend reads it through `GET /api/v1/org/users/{userId}/billing/usage/details`. Voice rates and cost are currently unknown (`no_rate_authority`); unknown cost is not zero.
+## Trying voice in Console
 
 Template Playground can test voice against the complete frozen Test content and selected Full Agent model. Ending the call keeps the Test open. External tools, private files and state reads remain unavailable. Task progress or a send attempt alone does not prove a physical action. Customer applications use the User-Key routes in this guide for their ordinary Sessions.

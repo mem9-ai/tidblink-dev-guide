@@ -1,6 +1,6 @@
 # Connectors
 
-> Bundled from the TiDB Link documentation (`mem9-ai/agent-stack` `main` @ `4734a32`, `apps/site/src/content/docs/docs/guides/`). Links point into this kit.
+> Bundled from the TiDB Link documentation (`mem9-ai/agent-stack` `main` @ `4734a32`, `apps/site/src/content/docs/docs/guides/`). Lightly adapted: links point into this kit, and the version rules were clarified against the contract.
 
 A **Connector** registers a tool server you operate, so Agents built on your Templates can call its tools. Unlike a plain MCP Server registration, every Connector `tools/call` carries a per-call [Call Context](#call-context): your server learns which Session it serves and maps that Session to your own user records. Connectors belong to your Organization and are managed with a User API Key of an active End User; see [authentication](../development-path.md#stage-2-provision-users).
 
@@ -37,7 +37,7 @@ curl -X POST https://<your-agent-service-host>/api/v1/connectors/<connectorId>/a
   -d '{"expectedConnectorVersion":1}'
 ```
 
-Discovery lists your tools over the declared transport — for `tunnel`, over your first ready tunnel connection, so connect an instance before activating; with none ready, activation is refused with `409`. A catalog holds at most 200 tools and each input schema at most 64 KiB. `expectedConnectorVersion` is optimistic concurrency: every mutation requires the current version and bumps it. After a `409`, read the Connector again and retry with its current version.
+Discovery lists your tools over the declared transport — for `tunnel`, over your first ready tunnel connection, so connect an instance before activating; with none ready, activation is refused with `409`. A catalog holds at most 200 tools and each input schema at most 64 KiB. `expectedConnectorVersion` is optimistic concurrency for registration changes: `PATCH`, `activate` and `deactivate` require the current version and bump it. After a `409`, read the Connector again and retry with its current version. Credential rotation uses the credential's own counter instead (see below).
 
 While a Connector is **active**, edits (`PATCH`) and every credential mutation are refused with `409`, so live Agents never observe a half-mutated registration. Deactivate to reconfigure:
 
@@ -131,7 +131,7 @@ The platform never retries automatically. After `timeout` or `result_unknown`, r
 
 `GET /api/v1/connectors/<connectorId>/credential` returns credential metadata only (`credentialBindingId`, `currentVersion`, `active`) — never the key.
 
-- **Rotate**: `POST …/credential/rotate` with `{"expectedCurrentVersion":<n>}` returns the new key exactly once and advances `currentVersion`. The old key stops working immediately.
+- **Rotate**: `POST …/credential/rotate` with `{"expectedCurrentVersion":<n>}`, where `<n>` is `currentVersion` from the credential `GET`, returns the new key exactly once and advances `currentVersion`. The old key stops working immediately.
 - **Revoke**: `DELETE …/credential` returns `204`, including when no credential exists.
 - **Reissue**: `PUT …/credential` with `{}` returns a fresh key exactly once when none is active — the path back from revocation. It is `409` while an active credential exists; rotate instead.
 

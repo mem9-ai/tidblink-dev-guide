@@ -36,7 +36,8 @@ curl --fail-with-body "$TIDB_LINK_BASE_URL/api/v1/org" \
 
 1. `POST /api/v1/org/skills/uploads` with `Content-Type: application/octet-stream`, exact `Content-Length`, an `Idempotency-Key`, and the ZIP as the body. Validation is asynchronous.
 2. Poll `GET /api/v1/org/skills/uploads/{uploadId}` until validation finishes; read its diagnostics.
-3. `POST /api/v1/org/skills/uploads/{uploadId}/publish` with a new `Idempotency-Key`. The response carries the published version.
+3. `POST /api/v1/org/skills/uploads/{uploadId}/publish` with a new `Idempotency-Key`. The `202` response only queues publication; `upload.version` may still be `null`.
+4. Poll `GET /api/v1/org/skills/uploads/{uploadId}` again until `state` is `done`, then take `upload.version`. `failed` and `aborted` are terminal: read the diagnostics and start a new upload.
 
 **4. Create the Agent Template.** Read `GET /api/v1/org/agent-template-reference-catalog` to choose a Sandbox Profile and published Skill versions, then create the Template with complete content:
 
@@ -119,7 +120,7 @@ curl --fail-with-body -X POST "$TIDB_LINK_BASE_URL/api/v1/connectors/<connectorI
   -d '{"expectedConnectorVersion":1}'
 ```
 
-Activation lists your tools and freezes the catalog (≤200 tools, ≤64 KiB per input schema). Every mutation needs the current `expectedConnectorVersion`; after a `409`, read the Connector and retry with its version. While active, edits and credential changes are refused — deactivate first.
+Activation lists your tools and freezes the catalog (≤200 tools, ≤64 KiB per input schema). Registration changes (`PATCH`, `activate`, `deactivate`) need the Connector's current `expectedConnectorVersion`; after a `409`, read the Connector and retry with its version. Credential rotation uses a different counter: `expectedCurrentVersion`, taken from `currentVersion` in `GET …/credential`. While active, edits and credential changes are refused — deactivate first.
 
 **12. Reference the Connector from the Template.** Today this is a Console step: in the Template editor, add the Connector (`conn_…` id) to the Template's tools and save. The Organization Template API does not set this reference, and preserves it across `PUT`. Only active Connectors of the same Organization can be referenced. The model sees each tool as `mcp_<server>__<tool>`.
 
