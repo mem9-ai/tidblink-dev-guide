@@ -1,5 +1,7 @@
 # Reliability and troubleshooting
 
+English | [简体中文](zh-CN/reliability.md)
+
 Rules for the requests in the [development path](development-path.md). Apply only those relevant to the selected OpenAPI operation.
 
 ## Prepare a request

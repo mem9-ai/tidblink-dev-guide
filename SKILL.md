@@ -9,6 +9,8 @@ Help developers build on **TiDB Link** through the **TiDB Link Customer API** (e
 
 ## Route the request
 
+For requests in Chinese, prefer the corresponding Simplified Chinese guide under `references/zh-CN/`: [architecture](references/zh-CN/architecture.md), [development path](references/zh-CN/development-path.md), [reliability](references/zh-CN/reliability.md), [Connectors](references/zh-CN/protocols/connectors.md), [Realtime voice](references/zh-CN/protocols/realtime-voice.md), and [upstream compatibility](references/zh-CN/upstream.md). Keep this single Skill entry point. All languages share `references/openapi.yaml` as the contract and `references/api-reference.html` as the English API reference; preserve wire names and verify operations against that YAML. Translation provenance and sync rules are in [references/zh-CN/TRANSLATION.md](references/zh-CN/TRANSLATION.md).
+
 Classify the request before loading detail:
 
 - For a vague request such as “integrate TiDB Link”, ask one question: which stage of the development path (setup, define the Agent, provision users, connect devices, text conversation, voice conversation) or troubleshooting.

@@ -1,0 +1,50 @@
+{
+  "english_baseline_commit": "a152eb4abcc08a6241fec90d41efd8e1b3989872",
+  "files": [
+    {
+      "source": "README.md",
+      "translation": "README.zh-CN.md",
+      "source_sha256": "02ae510e6ca2797823b99c6d933b53da08347ff915e560d28621c1f08fd124c1"
+    },
+    {
+      "source": "references/architecture.md",
+      "translation": "references/zh-CN/architecture.md",
+      "source_sha256": "12cd076f908abbdf355e70d69c5cb7b9c5afd2a802e375afab95b4f9660aa520"
+    },
+    {
+      "source": "references/development-path.md",
+      "translation": "references/zh-CN/development-path.md",
+      "source_sha256": "5fe3d3146f8af8476fa3ee485ab09ea2aadf4f0804e2e1a77fac5e0a6d9822a8"
+    },
+    {
+      "source": "references/diagrams/architecture.svg",
+      "translation": "references/zh-CN/diagrams/architecture.svg",
+      "source_sha256": "c99907f307aa8d8b9807d64cca103886b13e0346f4c353c53dcca7249c1f5e11"
+    },
+    {
+      "source": "references/diagrams/development-path.svg",
+      "translation": "references/zh-CN/diagrams/development-path.svg",
+      "source_sha256": "f81c1ae8ad234f7b636c4c86d86dac85d07ddbbc787ac4458f1692ceebae1956"
+    },
+    {
+      "source": "references/protocols/connectors.md",
+      "translation": "references/zh-CN/protocols/connectors.md",
+      "source_sha256": "732cac66edc0933c2ad674d4791bf78778575b64efe19283e3cdb6b3cd003eb1"
+    },
+    {
+      "source": "references/protocols/realtime-voice.md",
+      "translation": "references/zh-CN/protocols/realtime-voice.md",
+      "source_sha256": "51921d0086e348a1f047e8c38b448a047892ff4017760510f1118946c6be7b1d"
+    },
+    {
+      "source": "references/reliability.md",
+      "translation": "references/zh-CN/reliability.md",
+      "source_sha256": "971215f1198bfb5af62485e617080d31f28798264bd762d0fc77400c7716ecfd"
+    },
+    {
+      "source": "references/upstream.md",
+      "translation": "references/zh-CN/upstream.md",
+      "source_sha256": "5a1131627b9e29e1f2ec6cb315daa3824418bd595a25d38adf2be49a5aa20690"
+    }
+  ]
+}
