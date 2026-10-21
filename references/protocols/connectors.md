@@ -1,5 +1,7 @@
 # Connectors
 
+English | [简体中文](../zh-CN/protocols/connectors.md)
+
 > Adapted from the TiDB Link documentation and checked against the upstream contract and implementation recorded in [upstream.md](../upstream.md).
 
 A **Connector** registers a tool server you operate, so Agents built on your Templates can call its tools. Unlike a plain MCP Server registration, every Connector `tools/call` carries a per-call [Call Context](#call-context): your server learns which Session it serves and maps that Session to your own user records. Connectors belong to your Organization and are managed with an **Organization API Key**; see [setup](../development-path.md#stage-0-setup). User API Keys cannot manage Connectors (`403`). The old `/api/v1/connectors` management route is removed (`404`); only the Connector-Key WebSocket remains at `/api/v1/connectors/ws`.

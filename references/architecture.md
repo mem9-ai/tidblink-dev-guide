@@ -1,5 +1,7 @@
 # Architecture
 
+English | [简体中文](zh-CN/architecture.md)
+
 What a developer needs to understand before writing the first request: who holds which credential, how a Template becomes a conversation, and how text, voice and devices reach the Agent.
 
 ![TiDB Link architecture](diagrams/architecture.svg)

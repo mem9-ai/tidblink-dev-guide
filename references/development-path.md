@@ -1,5 +1,7 @@
 # Development path
 
+English | [简体中文](zh-CN/development-path.md)
+
 Build a TiDB Link integration in this order. Each stage ends with a “done when” check; reach it before moving on. Every step names its credential; exact headers, schemas and errors are in [openapi.yaml](openapi.yaml), and retry and recovery rules are in [reliability.md](reliability.md).
 
 ![TiDB Link development path](diagrams/development-path.svg)

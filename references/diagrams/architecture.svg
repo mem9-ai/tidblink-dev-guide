@@ -18,7 +18,7 @@ text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:#1f293
 <rect x="20" y="55" width="260" height="85" rx="10" fill="#fff" stroke="var(--devs)" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="36" y="82" class="t">Console (manual)</text>
 <text x="36" y="106" class="s">Org Owner issues the Org API Key</text>
-<text x="36" y="126" class="m">Setup only; not part of the API integration</text>
+<text x="36" y="126" class="m">Also used for Template Connector links</text>
 
 <rect x="20" y="180" width="260" height="190" rx="10" fill="var(--dev)" stroke="var(--devs)" stroke-width="1.5"/>
 <text x="36" y="207" class="t">Customer backend</text>

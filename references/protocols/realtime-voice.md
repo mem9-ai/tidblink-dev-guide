@@ -1,5 +1,7 @@
 # Realtime voice
 
+English | [简体中文](../zh-CN/protocols/realtime-voice.md)
+
 > Bundled from the TiDB Link documentation (`mem9-ai/agent-stack` `main` @ `4734a32`, `apps/site/src/content/docs/docs/guides/`). Lightly adapted: links point into this kit, and platform-hardware and billing details outside this guide's scope were removed.
 
 Use Realtime voice to let an End User speak with an Agent in an existing Session. This guide covers browser and device integration under the implemented `tidb-link.realtime.v1` contract. The [API reference](../openapi.yaml) and [downloadable OpenAPI](../openapi.yaml) describe the REST request and response schemas.

@@ -1,5 +1,7 @@
 # Upstream contract and compatibility
 
+English | [简体中文](zh-CN/upstream.md)
+
 `openapi.yaml` is an unmodified copy of [`mem9-ai/agent-stack/docs/openapi.yaml`](https://github.com/mem9-ai/agent-stack/blob/a32727a543c1b62a569efc177994a97bf6a7fbed/docs/openapi.yaml), taken from `main` on 2026-10-21.
 
 - Upstream commit: `a32727a543c1b62a569efc177994a97bf6a7fbed`

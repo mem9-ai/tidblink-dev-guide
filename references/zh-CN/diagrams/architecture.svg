@@ -1,0 +1,157 @@
+<svg xml:lang="zh-CN" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 840" role="img" aria-label="TiDB Link 简化架构图"><style>
+svg{--dev:#eef2f7;--devs:#64748b;--api:#fff7e6;--apis:#d97706;--org:#f3effd;--orgs:#7c3aed;--usr:#e8f6f3;--usrs:#0f766e;--run:#eef3fb;--runs:#2563eb}
+text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,"Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#1f2937}
+.h{font-size:15px;font-weight:700}.t{font-size:14px;font-weight:700}.s{font-size:12.5px;fill:#374151}.m{font-size:11.5px;fill:#6b7280}
+.c{font-family:ui-monospace,Menlo,Consolas,"Noto Sans CJK SC",monospace;font-size:12px}.l{font-size:11.5px;font-weight:600}
+</style><rect width="100%" height="100%" fill="#ffffff"/>
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#64748b"/></marker>
+<marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#7c3aed"/></marker>
+<marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#db2777"/></marker>
+<marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#2563eb"/></marker>
+</defs>
+<text x="20" y="34" class="h">你的系统</text>
+<text x="340" y="34" class="h">TiDB Link API（按凭据划分）</text>
+<text x="660" y="34" class="h">TiDB Link 平台</text>
+
+<!-- col A -->
+<rect x="20" y="55" width="260" height="85" rx="10" fill="#fff" stroke="var(--devs)" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="36" y="82" class="t">Console（手动操作）</text>
+<text x="36" y="106" class="s">组织所有者签发组织 API 密钥</text>
+<text x="36" y="126" class="m">关联模板中的 Connector 也需要 Console</text>
+
+<rect x="20" y="180" width="260" height="190" rx="10" fill="var(--dev)" stroke="var(--devs)" stroke-width="1.5"/>
+<text x="36" y="207" class="t">应用后端</text>
+<text x="36" y="233" class="s">• 保存组织密钥与各用户密钥</text>
+<text x="36" y="257" class="s">• 映射应用用户 ↔ userId</text>
+<text x="36" y="281" class="s">• 发送消息，向客户端转发 SSE</text>
+<text x="36" y="305" class="s">• 获取语音 connectToken</text>
+<text x="36" y="329" class="s">• 记录 sessionId ↔ 应用用户</text>
+<text x="36" y="352" class="m">所有长期密钥都保存在这里</text>
+
+<rect x="20" y="400" width="260" height="130" rx="10" fill="var(--dev)" stroke="var(--devs)" stroke-width="1.5"/>
+<text x="36" y="427" class="t">客户端（浏览器 / 应用 / 设备）</text>
+<text x="36" y="453" class="s">• 不持有 API 密钥</text>
+<text x="36" y="477" class="s">• 文本：通过你的后端</text>
+<text x="36" y="501" class="s">• 语音：使用 connectToken 连接 WS</text>
+
+<!-- col B -->
+<rect x="340" y="55" width="260" height="85" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
+<text x="356" y="80" class="c" style="font-weight:700">/api/v1/org/**</text>
+<text x="356" y="102" class="l" style="fill:#b45309">组织 API 密钥</text>
+<text x="356" y="124" class="s">模板、用户、密钥、Connector</text>
+
+<rect x="340" y="180" width="260" height="190" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
+<text x="356" y="205" class="c" style="font-weight:700">/api/v1/user/**</text>
+<text x="356" y="227" class="l" style="fill:#b45309">用户 API 密钥（一个终端用户）</text>
+<text x="356" y="253" class="s">创建 Agent 和 Session</text>
+<text x="356" y="277" class="s">POST …/events → 回执</text>
+<text x="356" y="301" class="s">GET …/events → SSE 流</text>
+<text x="356" y="325" class="s">POST …/realtime → connectToken</text>
+<text x="356" y="349" class="s">读取模型目录</text>
+
+<rect x="340" y="400" width="260" height="130" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
+<text x="356" y="427" class="t">Realtime WebSocket</text>
+<text x="356" y="451" class="c">tidb-link.realtime.v1</text>
+<text x="356" y="477" class="s">首帧：session.connect</text>
+<text x="356" y="501" class="s">音频帧、转写与打断</text>
+
+<!-- col C -->
+<rect x="660" y="48" width="525" height="672" rx="14" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="675" y="62" width="495" height="80" rx="10" fill="var(--org)" stroke="var(--orgs)" stroke-width="1.5"/>
+<text x="691" y="88" class="t">智能体模板（组织内共享）</text>
+<text x="691" y="112" class="s">指令 · Sandbox · Skill · 语音语言 · Connector 引用</text>
+<text x="691" y="132" class="m">保存立即生效，仅影响之后创建的 Session</text>
+
+<g>
+<rect x="675" y="200" width="105" height="90" rx="10" fill="var(--usr)" stroke="var(--usrs)" stroke-width="1.5"/>
+<text x="689" y="226" class="t">终端用户</text><text x="689" y="250" class="c">userId</text><text x="689" y="272" class="m">应用用户</text>
+<rect x="800" y="200" width="110" height="90" rx="10" fill="var(--usr)" stroke="var(--usrs)" stroke-width="1.5"/>
+<text x="814" y="226" class="t">Agent</text><text x="814" y="250" class="s">用户 × 模板</text><text x="814" y="272" class="m">关联</text>
+<rect x="930" y="200" width="120" height="90" rx="10" fill="var(--usr)" stroke="var(--usrs)" stroke-width="1.5"/>
+<text x="944" y="226" class="t">Session</text><text x="944" y="250" class="s">冻结模板</text><text x="944" y="272" class="m">文本 + 语音</text>
+<rect x="1070" y="200" width="100" height="90" rx="10" fill="var(--usr)" stroke="var(--usrs)" stroke-width="1.5"/>
+<text x="1084" y="226" class="t">Turn</text><text x="1084" y="250" class="s">一次执行</text><text x="1084" y="272" class="m">事件 → SSE</text>
+</g>
+<path d="M780,245 H798" stroke="#0f766e" stroke-width="1.8" marker-end="url(#a)"/>
+<path d="M910,245 H928" stroke="#0f766e" stroke-width="1.8" marker-end="url(#a)"/>
+<path d="M1050,245 H1068" stroke="#0f766e" stroke-width="1.8" marker-end="url(#a)"/>
+<text x="675" y="190" class="m" style="fill:#0f766e">终端用户的私有资源</text>
+
+<rect x="675" y="400" width="215" height="130" rx="10" fill="var(--run)" stroke="var(--runs)" stroke-width="1.5"/>
+<text x="691" y="427" class="t">实时连接</text>
+<text x="691" y="451" class="s">关联到已有 Session</text>
+<text x="691" y="475" class="s">Realtime Model 负责听与说</text>
+<text x="691" y="499" class="s">转写 → Session 时间线</text>
+
+<rect x="950" y="400" width="220" height="130" rx="10" fill="var(--run)" stroke="var(--runs)" stroke-width="1.5"/>
+<text x="966" y="427" class="t">Full Agent（LLM）</text>
+<text x="966" y="451" class="s">使用 Session 冻结的配置执行</text>
+<text x="966" y="475" class="s">调用工具，包括 Connector 工具</text>
+<text x="966" y="499" class="s">每次执行都是一个 Turn</text>
+
+<!-- arrows col A -->
+<path d="M150,140 V178" stroke="#7c3aed" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#p)"/>
+<text x="158" y="164" class="m" style="fill:#7c3aed">组织密钥</text>
+<path d="M150,400 V372" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4 3" marker-start="url(#a)" marker-end="url(#a)"/>
+<text x="158" y="390" class="m">文本 / connectToken</text>
+<path d="M280,110 C310,110 310,98 338,98" stroke="#64748b" stroke-width="0" fill="none"/>
+<path d="M280,215 C310,215 312,98 338,98" stroke="#64748b" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<path d="M280,275 H338" stroke="#64748b" stroke-width="1.8" marker-start="url(#a)" marker-end="url(#a)"/>
+<path d="M280,465 H338" stroke="#2563eb" stroke-width="1.8" marker-start="url(#b)" marker-end="url(#b)"/>
+<text x="290" y="456" class="m" style="fill:#2563eb">语音</text>
+
+<!-- B -> C -->
+<path d="M600,98 H673" stroke="#64748b" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M600,125 C650,125 640,245 673,245" stroke="#64748b" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+
+<path d="M600,230 H640 V168 H855 V198" stroke="#64748b" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<text x="700" y="162" class="m">创建 Agent / Session、发送、订阅</text>
+<path d="M600,465 H673" stroke="#2563eb" stroke-width="1.8" marker-start="url(#b)" marker-end="url(#b)"/>
+
+<!-- internal -->
+<path d="M1000,142 V198" stroke="#7c3aed" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#p)"/>
+<text x="1008" y="178" class="m" style="fill:#7c3aed">创建时冻结</text>
+<path d="M960,290 V340 H790 V398" stroke="#2563eb" stroke-width="1.6" fill="none" marker-end="url(#b)"/>
+<text x="800" y="334" class="m" style="fill:#2563eb">开启语音</text>
+<path d="M1010,290 V398" stroke="#2563eb" stroke-width="1.6" marker-end="url(#b)"/>
+<text x="1016" y="350" class="m" style="fill:#2563eb">消息</text>
+<path d="M890,465 H948" stroke="#2563eb" stroke-width="1.8" marker-end="url(#b)"/>
+<text x="896" y="455" class="m" style="fill:#2563eb">委派</text>
+<path d="M1120,400 V292" stroke="#2563eb" stroke-width="1.6" marker-end="url(#b)"/>
+<text x="1126" y="350" class="m" style="fill:#2563eb">产生</text>
+
+<!-- device via connector row -->
+<rect x="20" y="575" width="260" height="130" rx="10" fill="var(--dev)" stroke="var(--devs)" stroke-width="1.5"/>
+<text x="36" y="600" class="t">你的设备服务器（Connector）</text>
+<text x="36" y="624" class="s">• 持有 Connector Key 的 MCP 服务器</text>
+<text x="36" y="646" class="s">• 映射 sessionId → 用户 → 设备</text>
+<text x="36" y="668" class="s">• 按 callId 去重，在 deadline 前响应</text>
+<text x="36" y="690" class="m">可与应用后端使用同一服务</text>
+
+<rect x="20" y="745" width="260" height="80" rx="10" fill="#fdf2f8" stroke="#db2777" stroke-width="1.5"/>
+<text x="36" y="770" class="t">硬件设备</text>
+<text x="36" y="793" class="s">• 使用你的协议（MQTT/WS 等）</text>
+<text x="36" y="814" class="s">• 不直接连接 TiDB Link</text>
+<path d="M150,745 V707" stroke="#db2777" stroke-width="1.8" marker-start="url(#h)" marker-end="url(#h)"/>
+<text x="158" y="731" class="m" style="fill:#db2777">你的协议</text>
+
+<rect x="340" y="575" width="260" height="130" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
+<text x="356" y="600" class="t">Connector 传输通道</text>
+<text x="356" y="624" class="s">streamable_http → 你的 HTTPS</text>
+<text x="356" y="646" class="s">tunnel：主动连接（无需公网 IP）</text>
+<text x="356" y="666" class="c">/api/v1/connectors/ws</text>
+<text x="356" y="690" class="l" style="fill:#b45309">Bearer connectorKey</text>
+
+<rect x="675" y="575" width="495" height="130" rx="10" fill="#fdf2f8" stroke="#db2777" stroke-width="1.5"/>
+<text x="691" y="600" class="t">Connector（开发者托管的工具）</text>
+<text x="691" y="624" class="s">注册 → 激活：发现并冻结工具目录；由模板引用</text>
+<text x="691" y="646" class="s">每次调用携带上下文：callId · sessionId · organizationId · deadline</text>
+<text x="691" y="668" class="s">不自动重试；以 timeout / result_unknown 等错误告知模型</text>
+<text x="691" y="690" class="m">平台不了解你的设备：身份、在线状态和授权均由你管理</text>
+
+<path d="M280,640 H338" stroke="#db2777" stroke-width="1.8" marker-start="url(#h)" marker-end="url(#h)"/>
+<path d="M600,640 H673" stroke="#db2777" stroke-width="1.8" marker-start="url(#h)" marker-end="url(#h)"/>
+<path d="M1100,530 V573" stroke="#db2777" stroke-width="1.6" marker-end="url(#h)"/>
+<text x="1094" y="556" text-anchor="end" class="m" style="fill:#db2777">工具调用 + 调用上下文</text>
+</svg>

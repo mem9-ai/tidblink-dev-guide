@@ -1,5 +1,7 @@
 # TiDB Link Developer Kit
 
+English | [简体中文](README.zh-CN.md)
+
 Everything you need to build on **TiDB Link** — AI agents for your application's users, reachable by text and voice and able to drive your hardware — through the **TiDB Link Customer API** (`/api/v1`). Connector attachment to a Template currently also requires Console access.
 
 This kit works two ways:
