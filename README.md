@@ -1,6 +1,6 @@
 # TiDB Link Developer Kit
 
-Everything you need to build on **TiDB Link** — AI agents for your application's users, reachable by text and voice and able to drive your hardware — through the **TiDB Link Customer API** (`/api/v1`).
+Everything you need to build on **TiDB Link** — AI agents for your application's users, reachable by text and voice and able to drive your hardware — through the **TiDB Link Customer API** (`/api/v1`). Connector attachment to a Template currently also requires Console access.
 
 This kit works two ways:
 
@@ -22,7 +22,7 @@ Your backend holds the keys; clients get short-lived grants; your hardware talks
 | 0. Setup | Issue the Organization API Key; confirm the deployment is ready | Console |
 | 1. Define the Agent | Publish Skills (optional); create the Agent Template | Organization API Key |
 | 2. Provision users | Map your users; create End Users; issue User API Keys | Organization API Key |
-| 3. Connect devices | Build your device server; register, connect and activate it as a Connector; reference it from the Template | User API Key · Console |
+| 3. Connect devices | Build your device server; register, connect and activate it as a Connector; reference it from the Template | Organization API Key · Console |
 | 4. Text conversation | Create an Agent and Session; subscribe to SSE; send messages; render events | User API Key |
 | 5. Voice conversation | Open Realtime; connect the client WebSocket; stream audio | User API Key |
 
@@ -38,7 +38,7 @@ Stage 3 is skipped when you have no hardware. Details: [development-path.md](ref
 | `references/reliability.md` | Idempotency, ETags, SSE recovery, retries, error diagnosis. |
 | `references/protocols/connectors.md` | Building a Connector (device server): Call Context, transports, errors, worked examples. |
 | `references/protocols/realtime-voice.md` | The `tidb-link.realtime.v1` voice protocol. |
-| `references/openapi.yaml` | The complete TiDB Link Customer API contract — the source of truth. |
+| `references/openapi.yaml` | The upstream TiDB Link Customer API contract; see [source revision and compatibility](references/upstream.md). |
 | `references/api-reference.html` | The same contract rendered for humans. |
 | `references/diagrams/` | Architecture and development-path diagrams (SVG). |
 | `agents/openai.yaml` | Skill interface metadata. |
@@ -47,6 +47,7 @@ Stage 3 is skipped when you have no hardware. Details: [development-path.md](ref
 
 - **`TIDB_LINK_BASE_URL`** — the service root of your TiDB Link deployment.
 - **`TIDB_LINK_ORG_KEY`** — an Organization API Key (`ti_org_…`), issued by an Organization Owner in Console.
+- **For Stage 3:** a Console account with permission to edit Templates in the **same Organization**. MSP-created managed Organizations do not automatically have a Console member; arrange access with the organization administrator before starting device integration. An Org Key alone cannot complete Step 12. Prefer a public HTTPS `streamable_http` Connector on multi-replica deployments; see the [tunnel limitation](references/protocols/connectors.md#multi-replica-limit).
 - **`TIDB_LINK_USER_KEY`** — a User API Key (`ti_user_…`) for one End User, issued with the Organization API Key in stage 2.
 
 Treat every key as secret material: keep it in a secret manager on your backend, never in code, logs, URLs, browsers, firmware or chat.

@@ -2044,6 +2044,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: The Session is read-only (session_read_only).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         '412':
           description: The supplied Client Tool set ETag is stale.
           content:
@@ -2224,8 +2230,10 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '409':
           description:
-            The Idempotency-Key conflicts, the selected model provider is unconfigured, or combined
-            Agent instructions exceed 16 KiB (agent_instructions_too_large).
+            The Idempotency-Key conflicts, the selected model provider is unconfigured, the
+            Realtime Model is unavailable (realtime_model_unavailable), Realtime is disabled
+            (realtime_not_enabled), or combined Agent instructions exceed 16 KiB
+            (agent_instructions_too_large).
           content:
             application/json:
               schema:
@@ -2417,7 +2425,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '409':
-          description: The command identity was already used with a different body or target state.
+          description:
+            The command identity was already used with a different body or target state, or a new
+            message or retry targets a read-only Session (session_read_only).
           content:
             application/json:
               schema:
@@ -2614,6 +2624,85 @@ paths:
       tags:
         - Sessions
       description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
+  /api/v1/user/sessions/{id}/realtime-model:
+    patch:
+      operationId: SessionsController_updateRealtimeModel
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: If-Match
+          in: header
+          description: The realtimeModelEtag from the latest Session response.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRealtimeModelOpenApiDto'
+      responses:
+        '200':
+          description:
+            Updated selection for the next Realtime Connection. A live connection retains its
+            admitted model.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponseOpenApiDto'
+        '400':
+          description: validation_error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Missing or invalid User API Key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: A User API Key is required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: session_not_found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description:
+            realtime_model_unavailable, realtime_not_enabled, session_agent_unavailable or
+            session_read_only.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '412':
+          description: 'realtime_model_conflict: the supplied selection revision is stale.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '428':
+          description: 'precondition_required: If-Match is required.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+        - UserApiKey: []
+      tags:
+        - Sessions
+      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
   /api/v1/user/sessions/{id}/billing-tag:
     patch:
       operationId: SessionsController_updateBillingTag
@@ -2769,7 +2858,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '409':
-          description: The selected model configuration or command authority is unavailable.
+          description:
+            The selected model configuration or command authority is unavailable, or the Session is
+            read-only (session_read_only).
           content:
             application/json:
               schema:
@@ -2809,6 +2900,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UploadSessionFileResponseOpenApiDto'
+        '409':
+          description: The Session is read-only (session_read_only).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         default:
           $ref: '#/components/responses/Error'
       security:
@@ -3005,10 +3102,10 @@ paths:
                 enum:
                   - no
         '409':
-          description:
-            The Session already has an active Turn (session_has_active_turn), either before
-            transcription or reservation, or because another Turn starts during transcription.
-            Conflicts after accepted transcription retain ASR usage.
+          description: The Session is read-only (session_read_only), or already has an active Turn
+            (session_has_active_turn), either before transcription or reservation, or because
+            another Turn starts during transcription. Conflicts after accepted transcription retain
+            ASR usage.
           content:
             application/json:
               schema:
@@ -3134,7 +3231,10 @@ paths:
             default: 50
       responses:
         '200':
-          description: A bounded chronological page with complete saved messages and operations.
+          description:
+            Full Agent and Realtime Turns in creation-time order. Late Realtime writes before an
+            already consumed cursor require a full refresh; use /timeline for durable event-sequence
+            replay.
           content:
             application/json:
               schema:
@@ -3165,11 +3265,17 @@ paths:
         - $ref: '#/components/parameters/TurnIdPath'
       responses:
         '200':
-          description: ''
+          description: One Full Agent or user-input Realtime Turn.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TurnResponse'
+        '404':
+          description: Unavailable Session, unknown Turn or narration-only Realtime Turn.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         default:
           $ref: '#/components/responses/Error'
       security:
@@ -3947,7 +4053,9 @@ paths:
       description: >-
         The Idempotency-Key binds the exact request. Same-key retries recover the original File and
         fixed expiry. Expired or failed uploads require a new key and File. The response identifies
-        inline versus multipart transport and the verification expected after settlement.
+        inline versus multipart transport and the verification expected after settlement. Browsers
+        on any origin may call every upload route with the User API Key in Authorization; responses
+        never admit credentials.
 
 
         Authorization: UserApiKey; persisted credentials determine Organization and End User scope.
@@ -6405,7 +6513,7 @@ paths:
         that User. Only private User/Agent registrations can be managed. Only list/detail metadata
         reads may include shared Organization registrations; shared mutations and credential access
         are denied.'
-  /api/v1/connectors:
+  /api/v1/org/connectors:
     get:
       operationId: ConnectorsController_list
       parameters: []
@@ -6433,7 +6541,6 @@ paths:
                         - transport
                         - status
                         - connectorVersion
-                        - createdByUserId
                         - createdAt
                         - updatedAt
                         - observation
@@ -6468,9 +6575,6 @@ paths:
                         connectorVersion:
                           type: integer
                           minimum: 1
-                        createdByUserId:
-                          type: string
-                          nullable: true
                         createdAt:
                           type: string
                           format: date-time
@@ -6519,23 +6623,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: List the Organization’s Connector registrations.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
     post:
       operationId: ConnectorsController_create
       parameters: []
@@ -6583,7 +6692,6 @@ paths:
                   - transport
                   - status
                   - connectorVersion
-                  - createdByUserId
                   - createdAt
                   - updatedAt
                   - observation
@@ -6619,9 +6727,6 @@ paths:
                   connectorVersion:
                     type: integer
                     minimum: 1
-                  createdByUserId:
-                    type: string
-                    nullable: true
                   createdAt:
                     type: string
                     format: date-time
@@ -6674,13 +6779,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -6692,12 +6799,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Register an inactive Connector and receive its Connector Key exactly once.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
-  /api/v1/connectors/{connectorId}:
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
+  /api/v1/org/connectors/{connectorId}:
     get:
       operationId: ConnectorsController_get
       parameters:
@@ -6723,7 +6833,6 @@ paths:
                   - transport
                   - status
                   - connectorVersion
-                  - createdByUserId
                   - createdAt
                   - updatedAt
                   - observation
@@ -6758,9 +6867,6 @@ paths:
                   connectorVersion:
                     type: integer
                     minimum: 1
-                  createdByUserId:
-                    type: string
-                    nullable: true
                   createdAt:
                     type: string
                     format: date-time
@@ -6809,13 +6915,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -6827,11 +6935,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Get one Connector registration.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
     patch:
       operationId: ConnectorsController_update
       parameters:
@@ -6880,7 +6991,6 @@ paths:
                   - transport
                   - status
                   - connectorVersion
-                  - createdByUserId
                   - createdAt
                   - updatedAt
                   - observation
@@ -6915,9 +7025,6 @@ paths:
                   connectorVersion:
                     type: integer
                     minimum: 1
-                  createdByUserId:
-                    type: string
-                    nullable: true
                   createdAt:
                     type: string
                     format: date-time
@@ -6966,13 +7073,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -6990,12 +7099,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Edit an inactive Connector registration.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
-  /api/v1/connectors/{connectorId}/activate:
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
+  /api/v1/org/connectors/{connectorId}/activate:
     post:
       operationId: ConnectorsController_activate
       parameters:
@@ -7034,7 +7146,6 @@ paths:
                   - transport
                   - status
                   - connectorVersion
-                  - createdByUserId
                   - createdAt
                   - updatedAt
                   - observation
@@ -7069,9 +7180,6 @@ paths:
                   connectorVersion:
                     type: integer
                     minimum: 1
-                  createdByUserId:
-                    type: string
-                    nullable: true
                   createdAt:
                     type: string
                     format: date-time
@@ -7120,13 +7228,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -7144,12 +7254,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Discover the tool catalog and activate a Connector.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
-  /api/v1/connectors/{connectorId}/deactivate:
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
+  /api/v1/org/connectors/{connectorId}/deactivate:
     post:
       operationId: ConnectorsController_deactivate
       parameters:
@@ -7188,7 +7301,6 @@ paths:
                   - transport
                   - status
                   - connectorVersion
-                  - createdByUserId
                   - createdAt
                   - updatedAt
                   - observation
@@ -7223,9 +7335,6 @@ paths:
                   connectorVersion:
                     type: integer
                     minimum: 1
-                  createdByUserId:
-                    type: string
-                    nullable: true
                   createdAt:
                     type: string
                     format: date-time
@@ -7274,13 +7383,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -7298,12 +7409,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Deactivate a Connector.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
-  /api/v1/connectors/{connectorId}/credential:
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
+  /api/v1/org/connectors/{connectorId}/credential:
     get:
       operationId: ConnectorsController_credential
       parameters:
@@ -7348,13 +7462,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -7366,11 +7482,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Get Connector credential metadata.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
     put:
       operationId: ConnectorsController_issueCredential
       parameters:
@@ -7419,13 +7538,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -7443,11 +7564,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Issue a fresh Connector Key when none is active, returning it exactly once.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
     delete:
       operationId: ConnectorsController_revokeCredential
       parameters:
@@ -7467,13 +7591,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -7491,12 +7617,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Revoke the current Connector Key.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
-  /api/v1/connectors/{connectorId}/credential/rotate:
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
+  /api/v1/org/connectors/{connectorId}/credential/rotate:
     post:
       operationId: ConnectorsController_rotateCredential
       parameters:
@@ -7558,13 +7687,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '401':
-          description: Authentication required.
+          description:
+            'authentication_required: missing credentials, or the Organization API Key was revoked
+            or rotated before the change committed.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          description: The actor cannot manage Connectors in this Organization.
+          description: 'auth_kind_forbidden: requires an Organization API Key.'
           content:
             application/json:
               schema:
@@ -7582,11 +7713,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
       security:
-        - UserApiKey: []
+        - OrganizationApiKey: []
       summary: Rotate the Connector Key, returning the new key exactly once.
       tags:
         - Connectors
-      description: 'Authorization: UserApiKey; persisted credentials determine Organization and End User scope.'
+      description:
+        'Authorization: OrganizationApiKey; persisted credentials determine Organization scope;
+        no End User scope. Changes are attributed to the authentic Organization API Key; User API
+        Keys neither manage nor read Connectors.'
   /api/v1/connectors/ws:
     get:
       description: >-
@@ -12009,9 +12143,11 @@ paths:
     post:
       description: >-
         Admits a Realtime connection on an existing Session owned by the authenticated End User. The
-        connection inherits the Session’s Agent and Billing Tag and records the configured Realtime
-        model provider. The response carries a first one-time connect token; mint more with POST
-        /api/v1/user/sessions/{id}/realtime/connect-tokens. A Session has at most one live
+        connection inherits the Session’s Agent and Billing Tag and freezes the Session’s selected
+        Realtime Model and its provider identity. A null Session selection uses the release default;
+        a withdrawn selection is refused without fallback. Changing the Session selection affects
+        only the next connection. The response carries a first one-time connect token; mint more
+        with POST /api/v1/user/sessions/{id}/realtime/connect-tokens. A Session has at most one live
         (connecting, active or paused) Realtime connection: while one exists this route answers 409
         realtime_connection_live with details [{ "path": "/", "reason": "live realtime connection
         <id>" }]. Text and Realtime interaction may alternate on the same Session. A connection that
@@ -12069,7 +12205,7 @@ paths:
         '409':
           description:
             'ErrorEnvelope code: realtime_connection_live, session_read_only, realtime_not_enabled,
-            realtime_language_unsupported.'
+            realtime_language_unsupported, realtime_model_unavailable.'
           content:
             application/json:
               schema:
@@ -12252,6 +12388,47 @@ paths:
       summary: Mint a one-time connect token for the live Realtime connection
       tags:
         - RealtimeConnections
+  /api/v1/realtime-models:
+    get:
+      description: >-
+        All Organizations share the published catalog. available reflects current credential
+        readiness; no fallback replaces an unavailable default. Audio lists client formats supported
+        through platform conversion. An empty release returns an empty list and null defaultModel.
+
+
+        Authorization: UserApiKey; persisted credentials determine Organization and End User scope.
+      operationId: listRealtimeModels
+      parameters: []
+      responses:
+        '200':
+          description: Published Realtime Models and the default for new voice-enabled Sessions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealtimeModelsResponseOpenApiDto'
+        '401':
+          description: authentication_required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: user_api_key_required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: 'admission_unavailable: configuration could not be read.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+        - UserApiKey: []
+      summary: List published Realtime Models
+      tags:
+        - RealtimeModels
   /api/v1/org/users/{userId}/billing/usage:
     get:
       operationId: OrganizationBillingApiController_aggregate
@@ -14569,6 +14746,8 @@ components:
                 - provider_unavailable
                 - realtime_connection_not_found
                 - realtime_connection_live
+                - realtime_model_conflict
+                - realtime_model_unavailable
                 - realtime_not_enabled
                 - realtime_language_unsupported
                 - realtime_language_unavailable
@@ -14743,10 +14922,47 @@ components:
           format: date-time
         inputContext:
           $ref: '#/components/schemas/MessageInputContext'
+        realtime:
+          oneOf:
+            - type: object
+              properties:
+                startsTurn:
+                  type: boolean
+                linkedTurnId:
+                  type: string
+                  nullable: true
+              required:
+                - startsTurn
+                - linkedTurnId
+            - type: object
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - chat
+                    - task_ack
+                    - task_progress
+                    - task_result
+                    - clarify
+                    - device_ack
+                interrupted:
+                  description: The reply was interrupted; its transcript may include speech the user did not hear.
+                  type: boolean
+                responseId:
+                  type: string
+                  nullable: true
+                linkedTurnId:
+                  type: string
+                  nullable: true
+              required:
+                - kind
+                - interrupted
+                - responseId
+                - linkedTurnId
     MessageInputContext:
       description: Server-recorded channel of a user input; clients cannot set it. Present on user
         Messages except Scheduler-triggered Turns and Messages saved before it existed; absent on
-        assistant Messages.
+        assistant Messages. Tolerate channel values added later.
       oneOf:
         - type: object
           required:
@@ -14799,6 +15015,17 @@ components:
               type: string
               minLength: 1
               maxLength: 8000
+        - description:
+            "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+            standing goal while a Realtime Connection was live; nobody typed or spoke it."
+          type: object
+          required:
+            - channel
+          properties:
+            channel:
+              type: string
+              enum:
+                - standing_task
     Operation:
       type: object
       required:
@@ -14910,20 +15137,6 @@ components:
           type: string
     TurnUserFile:
       type: object
-      required:
-        - turnId
-        - sessionId
-        - organizationId
-        - userFileId
-        - ordinal
-        - originalName
-        - safeName
-        - drivePath
-        - byteSize
-        - sha256
-        - contentType
-        - createdAt
-        - checksumVerification
       properties:
         turnId:
           type: string
@@ -14945,18 +15158,32 @@ components:
           type: integer
         sha256:
           type: string
-        contentType:
-          type: string
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
         checksumVerification:
           type: string
           enum:
             - whole
             - part_only
           nullable: true
+        contentType:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - turnId
+        - sessionId
+        - organizationId
+        - userFileId
+        - ordinal
+        - originalName
+        - safeName
+        - drivePath
+        - byteSize
+        - sha256
+        - checksumVerification
+        - contentType
+        - createdAt
     ClarificationItem:
       description: A structured blocking question and its optional canonical persisted response. The
         linked user Message remains the readable conversation projection.
@@ -15174,6 +15401,158 @@ components:
             payload. Older failed Turns without one omit it.
           allOf:
             - $ref: '#/components/schemas/TurnFailure'
+        executor:
+          type: string
+          enum:
+            - full_agent
+            - realtime_model
+        realtime:
+          type: object
+          properties:
+            connectionId:
+              type: string
+            linkedTurnIds:
+              type: array
+              items:
+                type: string
+          required:
+            - connectionId
+            - linkedTurnIds
+        realtimeResponses:
+          description: Narration-only Realtime responses about this Full Agent Turn, in Session sequence order.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              sessionId:
+                type: string
+              turnId:
+                type: string
+              role:
+                type: string
+                enum:
+                  - user
+                  - assistant
+              content:
+                type: string
+              createdAt:
+                type: string
+              inputContext:
+                description:
+                  Server-recorded channel of a user input; clients cannot set it. Present on user
+                  Messages except Scheduler-triggered Turns and Messages saved before it existed;
+                  absent on assistant Messages. Tolerate channel values added later.
+                oneOf:
+                  - type: object
+                    properties:
+                      channel:
+                        type: string
+                        enum:
+                          - text
+                    required:
+                      - channel
+                  - type: object
+                    properties:
+                      channel:
+                        type: string
+                        enum:
+                          - audio
+                      utterance:
+                        description:
+                          Transcript of the user's own speech when the Message content is a task delegated from
+                          it.
+                        type: string
+                        minLength: 1
+                        maxLength: 8000
+                      emotion:
+                        description: Emotion the Realtime model perceived in the speech; not a verified fact.
+                        type: object
+                        properties:
+                          label:
+                            type: string
+                            minLength: 1
+                            maxLength: 64
+                          confidence:
+                            type: number
+                            minimum: 0
+                            exclusiveMinimum: false
+                            maximum: 1
+                            exclusiveMaximum: false
+                          source:
+                            type: string
+                            enum:
+                              - realtime_model
+                        required:
+                          - label
+                          - confidence
+                          - source
+                      realtimeSummary:
+                        description:
+                          The Realtime model's own summary of the preceding voice conversation; model-written,
+                          not a durable transcript. Interim field, removed once the server derives
+                          this context.
+                        type: string
+                        minLength: 1
+                        maxLength: 8000
+                    required:
+                      - channel
+                  - description:
+                      "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                      standing goal while a Realtime Connection was live; nobody typed or spoke it."
+                    type: object
+                    properties:
+                      channel:
+                        type: string
+                        enum:
+                          - standing_task
+                    required:
+                      - channel
+              realtime:
+                oneOf:
+                  - type: object
+                    properties:
+                      startsTurn:
+                        type: boolean
+                      linkedTurnId:
+                        type: string
+                        nullable: true
+                    required:
+                      - startsTurn
+                      - linkedTurnId
+                  - type: object
+                    properties:
+                      kind:
+                        type: string
+                        enum:
+                          - chat
+                          - task_ack
+                          - task_progress
+                          - task_result
+                          - clarify
+                          - device_ack
+                      interrupted:
+                        description: The reply was interrupted; its transcript may include speech the user did not hear.
+                        type: boolean
+                      responseId:
+                        type: string
+                        nullable: true
+                      linkedTurnId:
+                        type: string
+                        nullable: true
+                    required:
+                      - kind
+                      - interrupted
+                      - responseId
+                      - linkedTurnId
+            required:
+              - id
+              - sessionId
+              - turnId
+              - role
+              - content
+              - createdAt
     TurnResponse:
       type: object
       required:
@@ -15233,6 +15612,19 @@ components:
               type: integer
               minimum: 0
               exclusiveMinimum: true
+            realtimeModel:
+              description: Selection for the next Realtime Connection; null uses the active release default.
+              type: string
+              nullable: true
+            realtimeModelRevision:
+              type: integer
+              minimum: 0
+              exclusiveMinimum: true
+            realtimeModelEtag:
+              description:
+                Opaque If-Match token for PATCH /api/v1/user/sessions/{id}/realtime-model; independent
+                of the text model ETag.
+              type: string
             createdWithAgentId:
               type: string
             template:
@@ -15453,6 +15845,9 @@ components:
             - sourceSchedulerFireId
             - model
             - modelRevision
+            - realtimeModel
+            - realtimeModelRevision
+            - realtimeModelEtag
             - createdWithAgentId
             - template
             - modelPolicyStatus
@@ -16810,11 +17205,17 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
         effectiveDefaultModel:
+          description:
+            'Suggested default for new Sessions: the active release default when selectable, else
+            the Organization default when selectable, else the first selectable model. Session
+            creation without a model applies only the first two and otherwise refuses with
+            model_provider_unconfigured.'
           type: string
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
         organizationAllowedModels:
+          description: Stored Organization allow-list. It does not currently limit selection.
           type: array
           items:
             type: string
@@ -16822,6 +17223,7 @@ components:
             maxLength: 64
             pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
         effectiveAllowedModels:
+          description: 'Models the Organization can select now: every model the active release serves.'
           type: array
           items:
             type: string
@@ -17269,6 +17671,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
+        realtimeModel:
+          type: string
+          minLength: 1
+          maxLength: 128
         billingTag:
           nullable: true
           description:
@@ -19315,6 +19721,19 @@ components:
                 type: integer
                 minimum: 0
                 exclusiveMinimum: true
+              realtimeModel:
+                description: Selection for the next Realtime Connection; null uses the active release default.
+                type: string
+                nullable: true
+              realtimeModelRevision:
+                type: integer
+                minimum: 0
+                exclusiveMinimum: true
+              realtimeModelEtag:
+                description:
+                  Opaque If-Match token for PATCH /api/v1/user/sessions/{id}/realtime-model; independent
+                  of the text model ETag.
+                type: string
               createdWithAgentId:
                 type: string
               template:
@@ -19535,6 +19954,9 @@ components:
               - sourceSchedulerFireId
               - model
               - modelRevision
+              - realtimeModel
+              - realtimeModelRevision
+              - realtimeModelEtag
               - createdWithAgentId
               - template
               - modelPolicyStatus
@@ -20444,6 +20866,19 @@ components:
               type: integer
               minimum: 0
               exclusiveMinimum: true
+            realtimeModel:
+              description: Selection for the next Realtime Connection; null uses the active release default.
+              type: string
+              nullable: true
+            realtimeModelRevision:
+              type: integer
+              minimum: 0
+              exclusiveMinimum: true
+            realtimeModelEtag:
+              description:
+                Opaque If-Match token for PATCH /api/v1/user/sessions/{id}/realtime-model; independent
+                of the text model ETag.
+              type: string
             createdWithAgentId:
               type: string
             template:
@@ -20664,6 +21099,9 @@ components:
             - sourceSchedulerFireId
             - model
             - modelRevision
+            - realtimeModel
+            - realtimeModelRevision
+            - realtimeModelEtag
             - createdWithAgentId
             - template
             - modelPolicyStatus
@@ -21184,6 +21622,23 @@ components:
                 - language
               nullable: true
               additionalProperties: false
+            standingTask:
+              description:
+                'Optional Realtime Standing Task: a live Realtime Connection of a voice-enabled Session
+                keeps one Full Agent task with this goal running while a client is attached and the
+                Realtime Model has no task of its own. Ignored when realtime is null and by Template
+                Tests.'
+              type: object
+              properties:
+                goal:
+                  description:
+                    What the Full Agent does in each Standing Task Turn. Line endings are normalized and
+                    surrounding whitespace trimmed; the result must have 1 to 4000 characters,
+                    counted as UTF-16 code units.
+                  type: string
+              required:
+                - goal
+              additionalProperties: false
             schemaVersion:
               type: string
               enum:
@@ -21357,6 +21812,23 @@ components:
                 - language
               nullable: true
               additionalProperties: false
+            standingTask:
+              description:
+                'Optional Realtime Standing Task: a live Realtime Connection of a voice-enabled Session
+                keeps one Full Agent task with this goal running while a client is attached and the
+                Realtime Model has no task of its own. Ignored when realtime is null and by Template
+                Tests.'
+              type: object
+              properties:
+                goal:
+                  description:
+                    What the Full Agent does in each Standing Task Turn. Line endings are normalized and
+                    surrounding whitespace trimmed; the result must have 1 to 4000 characters,
+                    counted as UTF-16 code units.
+                  type: string
+              required:
+                - goal
+              additionalProperties: false
             schemaVersion:
               type: string
               enum:
@@ -21485,6 +21957,23 @@ components:
               required:
                 - language
               nullable: true
+              additionalProperties: false
+            standingTask:
+              description:
+                'Optional Realtime Standing Task: a live Realtime Connection of a voice-enabled Session
+                keeps one Full Agent task with this goal running while a client is attached and the
+                Realtime Model has no task of its own. Ignored when realtime is null and by Template
+                Tests.'
+              type: object
+              properties:
+                goal:
+                  description:
+                    What the Full Agent does in each Standing Task Turn. Line endings are normalized and
+                    surrounding whitespace trimmed; the result must have 1 to 4000 characters,
+                    counted as UTF-16 code units.
+                  type: string
+              required:
+                - goal
               additionalProperties: false
             schemaVersion:
               type: string
@@ -22269,112 +22758,27 @@ components:
           items:
             type: object
             properties:
-              id:
-                type: string
-              sessionId:
-                type: string
-              status:
+              executor:
                 type: string
                 enum:
-                  - running
-                  - succeeded
-                  - failed
-                  - interrupted
-              billingTag:
-                nullable: true
-                description:
-                  One immutable Billing Tag snapshot for this resource. Null means untagged; request
-                  fields may be omitted only where the operation documents inheritance.
-                allOf:
-                  - $ref: '#/components/schemas/BillingTag'
-              userMessage:
+                  - full_agent
+                  - realtime_model
+              realtime:
                 type: object
                 properties:
-                  id:
+                  connectionId:
                     type: string
-                  sessionId:
-                    type: string
-                  turnId:
-                    type: string
-                  role:
-                    type: string
-                    enum:
-                      - user
-                      - assistant
-                  content:
-                    type: string
-                  createdAt:
-                    type: string
-                  inputContext:
-                    description:
-                      Server-recorded channel of a user input; clients cannot set it. Present on user
-                      Messages except Scheduler-triggered Turns and Messages saved before it
-                      existed; absent on assistant Messages.
-                    oneOf:
-                      - type: object
-                        properties:
-                          channel:
-                            type: string
-                            enum:
-                              - text
-                        required:
-                          - channel
-                      - type: object
-                        properties:
-                          channel:
-                            type: string
-                            enum:
-                              - audio
-                          utterance:
-                            description:
-                              Transcript of the user's own speech when the Message content is a task delegated from
-                              it.
-                            type: string
-                            minLength: 1
-                            maxLength: 8000
-                          emotion:
-                            description: Emotion the Realtime model perceived in the speech; not a verified fact.
-                            type: object
-                            properties:
-                              label:
-                                type: string
-                                minLength: 1
-                                maxLength: 64
-                              confidence:
-                                type: number
-                                minimum: 0
-                                exclusiveMinimum: false
-                                maximum: 1
-                                exclusiveMaximum: false
-                              source:
-                                type: string
-                                enum:
-                                  - realtime_model
-                            required:
-                              - label
-                              - confidence
-                              - source
-                          realtimeSummary:
-                            description:
-                              The Realtime model's own summary of the preceding voice conversation; model-written,
-                              not a durable transcript. Interim field, removed once the server
-                              derives this context.
-                            type: string
-                            minLength: 1
-                            maxLength: 8000
-                        required:
-                          - channel
+                  linkedTurnIds:
+                    type: array
+                    items:
+                      type: string
                 required:
-                  - id
-                  - sessionId
-                  - turnId
-                  - role
-                  - content
-                  - createdAt
-              userMessages:
+                  - connectionId
+                  - linkedTurnIds
+              realtimeResponses:
                 description:
-                  Canonical admitted user Messages in input order; includes accepted inputs interrupted
-                  before incorporation.
+                  Narration-only Realtime responses about this Full Agent Turn, in Session sequence
+                  order.
                 type: array
                 items:
                   type: object
@@ -22398,7 +22802,7 @@ components:
                       description:
                         Server-recorded channel of a user input; clients cannot set it. Present on user
                         Messages except Scheduler-triggered Turns and Messages saved before it
-                        existed; absent on assistant Messages.
+                        existed; absent on assistant Messages. Tolerate channel values added later.
                       oneOf:
                         - type: object
                           properties:
@@ -22453,6 +22857,344 @@ components:
                               maxLength: 8000
                           required:
                             - channel
+                        - description:
+                            "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                            standing goal while a Realtime Connection was live; nobody typed or
+                            spoke it."
+                          type: object
+                          properties:
+                            channel:
+                              type: string
+                              enum:
+                                - standing_task
+                          required:
+                            - channel
+                    realtime:
+                      oneOf:
+                        - type: object
+                          properties:
+                            startsTurn:
+                              type: boolean
+                            linkedTurnId:
+                              type: string
+                              nullable: true
+                          required:
+                            - startsTurn
+                            - linkedTurnId
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              enum:
+                                - chat
+                                - task_ack
+                                - task_progress
+                                - task_result
+                                - clarify
+                                - device_ack
+                            interrupted:
+                              description: The reply was interrupted; its transcript may include speech the user did not hear.
+                              type: boolean
+                            responseId:
+                              type: string
+                              nullable: true
+                            linkedTurnId:
+                              type: string
+                              nullable: true
+                          required:
+                            - kind
+                            - interrupted
+                            - responseId
+                            - linkedTurnId
+                  required:
+                    - id
+                    - sessionId
+                    - turnId
+                    - role
+                    - content
+                    - createdAt
+              id:
+                type: string
+              sessionId:
+                type: string
+              status:
+                type: string
+                enum:
+                  - running
+                  - succeeded
+                  - failed
+                  - interrupted
+              billingTag:
+                nullable: true
+                description:
+                  One immutable Billing Tag snapshot for this resource. Null means untagged; request
+                  fields may be omitted only where the operation documents inheritance.
+                allOf:
+                  - $ref: '#/components/schemas/BillingTag'
+              userMessage:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  sessionId:
+                    type: string
+                  turnId:
+                    type: string
+                  role:
+                    type: string
+                    enum:
+                      - user
+                      - assistant
+                  content:
+                    type: string
+                  createdAt:
+                    type: string
+                  inputContext:
+                    description:
+                      Server-recorded channel of a user input; clients cannot set it. Present on user
+                      Messages except Scheduler-triggered Turns and Messages saved before it
+                      existed; absent on assistant Messages. Tolerate channel values added later.
+                    oneOf:
+                      - type: object
+                        properties:
+                          channel:
+                            type: string
+                            enum:
+                              - text
+                        required:
+                          - channel
+                      - type: object
+                        properties:
+                          channel:
+                            type: string
+                            enum:
+                              - audio
+                          utterance:
+                            description:
+                              Transcript of the user's own speech when the Message content is a task delegated from
+                              it.
+                            type: string
+                            minLength: 1
+                            maxLength: 8000
+                          emotion:
+                            description: Emotion the Realtime model perceived in the speech; not a verified fact.
+                            type: object
+                            properties:
+                              label:
+                                type: string
+                                minLength: 1
+                                maxLength: 64
+                              confidence:
+                                type: number
+                                minimum: 0
+                                exclusiveMinimum: false
+                                maximum: 1
+                                exclusiveMaximum: false
+                              source:
+                                type: string
+                                enum:
+                                  - realtime_model
+                            required:
+                              - label
+                              - confidence
+                              - source
+                          realtimeSummary:
+                            description:
+                              The Realtime model's own summary of the preceding voice conversation; model-written,
+                              not a durable transcript. Interim field, removed once the server
+                              derives this context.
+                            type: string
+                            minLength: 1
+                            maxLength: 8000
+                        required:
+                          - channel
+                      - description:
+                          "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                          standing goal while a Realtime Connection was live; nobody typed or spoke
+                          it."
+                        type: object
+                        properties:
+                          channel:
+                            type: string
+                            enum:
+                              - standing_task
+                        required:
+                          - channel
+                  realtime:
+                    oneOf:
+                      - type: object
+                        properties:
+                          startsTurn:
+                            type: boolean
+                          linkedTurnId:
+                            type: string
+                            nullable: true
+                        required:
+                          - startsTurn
+                          - linkedTurnId
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            enum:
+                              - chat
+                              - task_ack
+                              - task_progress
+                              - task_result
+                              - clarify
+                              - device_ack
+                          interrupted:
+                            description: The reply was interrupted; its transcript may include speech the user did not hear.
+                            type: boolean
+                          responseId:
+                            type: string
+                            nullable: true
+                          linkedTurnId:
+                            type: string
+                            nullable: true
+                        required:
+                          - kind
+                          - interrupted
+                          - responseId
+                          - linkedTurnId
+                required:
+                  - id
+                  - sessionId
+                  - turnId
+                  - role
+                  - content
+                  - createdAt
+              userMessages:
+                description:
+                  Canonical admitted user Messages in input order; includes accepted inputs interrupted
+                  before incorporation.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    sessionId:
+                      type: string
+                    turnId:
+                      type: string
+                    role:
+                      type: string
+                      enum:
+                        - user
+                        - assistant
+                    content:
+                      type: string
+                    createdAt:
+                      type: string
+                    inputContext:
+                      description:
+                        Server-recorded channel of a user input; clients cannot set it. Present on user
+                        Messages except Scheduler-triggered Turns and Messages saved before it
+                        existed; absent on assistant Messages. Tolerate channel values added later.
+                      oneOf:
+                        - type: object
+                          properties:
+                            channel:
+                              type: string
+                              enum:
+                                - text
+                          required:
+                            - channel
+                        - type: object
+                          properties:
+                            channel:
+                              type: string
+                              enum:
+                                - audio
+                            utterance:
+                              description:
+                                Transcript of the user's own speech when the Message content is a task delegated from
+                                it.
+                              type: string
+                              minLength: 1
+                              maxLength: 8000
+                            emotion:
+                              description: Emotion the Realtime model perceived in the speech; not a verified fact.
+                              type: object
+                              properties:
+                                label:
+                                  type: string
+                                  minLength: 1
+                                  maxLength: 64
+                                confidence:
+                                  type: number
+                                  minimum: 0
+                                  exclusiveMinimum: false
+                                  maximum: 1
+                                  exclusiveMaximum: false
+                                source:
+                                  type: string
+                                  enum:
+                                    - realtime_model
+                              required:
+                                - label
+                                - confidence
+                                - source
+                            realtimeSummary:
+                              description:
+                                The Realtime model's own summary of the preceding voice conversation; model-written,
+                                not a durable transcript. Interim field, removed once the server
+                                derives this context.
+                              type: string
+                              minLength: 1
+                              maxLength: 8000
+                          required:
+                            - channel
+                        - description:
+                            "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                            standing goal while a Realtime Connection was live; nobody typed or
+                            spoke it."
+                          type: object
+                          properties:
+                            channel:
+                              type: string
+                              enum:
+                                - standing_task
+                          required:
+                            - channel
+                    realtime:
+                      oneOf:
+                        - type: object
+                          properties:
+                            startsTurn:
+                              type: boolean
+                            linkedTurnId:
+                              type: string
+                              nullable: true
+                          required:
+                            - startsTurn
+                            - linkedTurnId
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              enum:
+                                - chat
+                                - task_ack
+                                - task_progress
+                                - task_result
+                                - clarify
+                                - device_ack
+                            interrupted:
+                              description: The reply was interrupted; its transcript may include speech the user did not hear.
+                              type: boolean
+                            responseId:
+                              type: string
+                              nullable: true
+                            linkedTurnId:
+                              type: string
+                              nullable: true
+                          required:
+                            - kind
+                            - interrupted
+                            - responseId
+                            - linkedTurnId
                   required:
                     - id
                     - sessionId
@@ -22677,7 +23419,7 @@ components:
                     description:
                       Server-recorded channel of a user input; clients cannot set it. Present on user
                       Messages except Scheduler-triggered Turns and Messages saved before it
-                      existed; absent on assistant Messages.
+                      existed; absent on assistant Messages. Tolerate channel values added later.
                     oneOf:
                       - type: object
                         properties:
@@ -22732,6 +23474,55 @@ components:
                             maxLength: 8000
                         required:
                           - channel
+                      - description:
+                          "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                          standing goal while a Realtime Connection was live; nobody typed or spoke
+                          it."
+                        type: object
+                        properties:
+                          channel:
+                            type: string
+                            enum:
+                              - standing_task
+                        required:
+                          - channel
+                  realtime:
+                    oneOf:
+                      - type: object
+                        properties:
+                          startsTurn:
+                            type: boolean
+                          linkedTurnId:
+                            type: string
+                            nullable: true
+                        required:
+                          - startsTurn
+                          - linkedTurnId
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            enum:
+                              - chat
+                              - task_ack
+                              - task_progress
+                              - task_result
+                              - clarify
+                              - device_ack
+                          interrupted:
+                            description: The reply was interrupted; its transcript may include speech the user did not hear.
+                            type: boolean
+                          responseId:
+                            type: string
+                            nullable: true
+                          linkedTurnId:
+                            type: string
+                            nullable: true
+                        required:
+                          - kind
+                          - interrupted
+                          - responseId
+                          - linkedTurnId
                 required:
                   - id
                   - sessionId
@@ -22882,6 +23673,7 @@ components:
                   - code
                   - message
             required:
+              - executor
               - id
               - sessionId
               - status
@@ -23337,112 +24129,28 @@ components:
                   turn:
                     type: object
                     properties:
-                      id:
-                        type: string
-                      sessionId:
-                        type: string
-                      status:
+                      executor:
+                        description: Always returned by /turns list and detail; older Turn surfaces may omit it.
                         type: string
                         enum:
-                          - running
-                          - succeeded
-                          - failed
-                          - interrupted
-                      billingTag:
-                        nullable: true
-                        description:
-                          One immutable Billing Tag snapshot for this resource. Null means untagged; request
-                          fields may be omitted only where the operation documents inheritance.
-                        allOf:
-                          - $ref: '#/components/schemas/BillingTag'
-                      userMessage:
+                          - full_agent
+                          - realtime_model
+                      realtime:
                         type: object
                         properties:
-                          id:
+                          connectionId:
                             type: string
-                          sessionId:
-                            type: string
-                          turnId:
-                            type: string
-                          role:
-                            type: string
-                            enum:
-                              - user
-                              - assistant
-                          content:
-                            type: string
-                          createdAt:
-                            type: string
-                          inputContext:
-                            description:
-                              Server-recorded channel of a user input; clients cannot set it. Present on user
-                              Messages except Scheduler-triggered Turns and Messages saved before it
-                              existed; absent on assistant Messages.
-                            oneOf:
-                              - type: object
-                                properties:
-                                  channel:
-                                    type: string
-                                    enum:
-                                      - text
-                                required:
-                                  - channel
-                              - type: object
-                                properties:
-                                  channel:
-                                    type: string
-                                    enum:
-                                      - audio
-                                  utterance:
-                                    description:
-                                      Transcript of the user's own speech when the Message content is a task delegated from
-                                      it.
-                                    type: string
-                                    minLength: 1
-                                    maxLength: 8000
-                                  emotion:
-                                    description: Emotion the Realtime model perceived in the speech; not a verified fact.
-                                    type: object
-                                    properties:
-                                      label:
-                                        type: string
-                                        minLength: 1
-                                        maxLength: 64
-                                      confidence:
-                                        type: number
-                                        minimum: 0
-                                        exclusiveMinimum: false
-                                        maximum: 1
-                                        exclusiveMaximum: false
-                                      source:
-                                        type: string
-                                        enum:
-                                          - realtime_model
-                                    required:
-                                      - label
-                                      - confidence
-                                      - source
-                                  realtimeSummary:
-                                    description:
-                                      The Realtime model's own summary of the preceding voice conversation; model-written,
-                                      not a durable transcript. Interim field, removed once the
-                                      server derives this context.
-                                    type: string
-                                    minLength: 1
-                                    maxLength: 8000
-                                required:
-                                  - channel
+                          linkedTurnIds:
+                            type: array
+                            items:
+                              type: string
                         required:
-                          - id
-                          - sessionId
-                          - turnId
-                          - role
-                          - content
-                          - createdAt
-                      userMessages:
+                          - connectionId
+                          - linkedTurnIds
+                      realtimeResponses:
                         description:
-                          Canonical admitted user Messages in input order; includes accepted inputs interrupted
-                          before incorporation.
+                          Narration-only Realtime responses about this Full Agent Turn, in Session sequence
+                          order.
                         type: array
                         items:
                           type: object
@@ -23466,7 +24174,8 @@ components:
                               description:
                                 Server-recorded channel of a user input; clients cannot set it. Present on user
                                 Messages except Scheduler-triggered Turns and Messages saved before
-                                it existed; absent on assistant Messages.
+                                it existed; absent on assistant Messages. Tolerate channel values
+                                added later.
                               oneOf:
                                 - type: object
                                   properties:
@@ -23521,6 +24230,346 @@ components:
                                       maxLength: 8000
                                   required:
                                     - channel
+                                - description:
+                                    "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                                    standing goal while a Realtime Connection was live; nobody typed
+                                    or spoke it."
+                                  type: object
+                                  properties:
+                                    channel:
+                                      type: string
+                                      enum:
+                                        - standing_task
+                                  required:
+                                    - channel
+                            realtime:
+                              oneOf:
+                                - type: object
+                                  properties:
+                                    startsTurn:
+                                      type: boolean
+                                    linkedTurnId:
+                                      type: string
+                                      nullable: true
+                                  required:
+                                    - startsTurn
+                                    - linkedTurnId
+                                - type: object
+                                  properties:
+                                    kind:
+                                      type: string
+                                      enum:
+                                        - chat
+                                        - task_ack
+                                        - task_progress
+                                        - task_result
+                                        - clarify
+                                        - device_ack
+                                    interrupted:
+                                      description: The reply was interrupted; its transcript may include speech the user did not hear.
+                                      type: boolean
+                                    responseId:
+                                      type: string
+                                      nullable: true
+                                    linkedTurnId:
+                                      type: string
+                                      nullable: true
+                                  required:
+                                    - kind
+                                    - interrupted
+                                    - responseId
+                                    - linkedTurnId
+                          required:
+                            - id
+                            - sessionId
+                            - turnId
+                            - role
+                            - content
+                            - createdAt
+                      id:
+                        type: string
+                      sessionId:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - succeeded
+                          - failed
+                          - interrupted
+                      billingTag:
+                        nullable: true
+                        description:
+                          One immutable Billing Tag snapshot for this resource. Null means untagged; request
+                          fields may be omitted only where the operation documents inheritance.
+                        allOf:
+                          - $ref: '#/components/schemas/BillingTag'
+                      userMessage:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          sessionId:
+                            type: string
+                          turnId:
+                            type: string
+                          role:
+                            type: string
+                            enum:
+                              - user
+                              - assistant
+                          content:
+                            type: string
+                          createdAt:
+                            type: string
+                          inputContext:
+                            description:
+                              Server-recorded channel of a user input; clients cannot set it. Present on user
+                              Messages except Scheduler-triggered Turns and Messages saved before it
+                              existed; absent on assistant Messages. Tolerate channel values added
+                              later.
+                            oneOf:
+                              - type: object
+                                properties:
+                                  channel:
+                                    type: string
+                                    enum:
+                                      - text
+                                required:
+                                  - channel
+                              - type: object
+                                properties:
+                                  channel:
+                                    type: string
+                                    enum:
+                                      - audio
+                                  utterance:
+                                    description:
+                                      Transcript of the user's own speech when the Message content is a task delegated from
+                                      it.
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 8000
+                                  emotion:
+                                    description: Emotion the Realtime model perceived in the speech; not a verified fact.
+                                    type: object
+                                    properties:
+                                      label:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 64
+                                      confidence:
+                                        type: number
+                                        minimum: 0
+                                        exclusiveMinimum: false
+                                        maximum: 1
+                                        exclusiveMaximum: false
+                                      source:
+                                        type: string
+                                        enum:
+                                          - realtime_model
+                                    required:
+                                      - label
+                                      - confidence
+                                      - source
+                                  realtimeSummary:
+                                    description:
+                                      The Realtime model's own summary of the preceding voice conversation; model-written,
+                                      not a durable transcript. Interim field, removed once the
+                                      server derives this context.
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 8000
+                                required:
+                                  - channel
+                              - description:
+                                  "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                                  standing goal while a Realtime Connection was live; nobody typed
+                                  or spoke it."
+                                type: object
+                                properties:
+                                  channel:
+                                    type: string
+                                    enum:
+                                      - standing_task
+                                required:
+                                  - channel
+                          realtime:
+                            oneOf:
+                              - type: object
+                                properties:
+                                  startsTurn:
+                                    type: boolean
+                                  linkedTurnId:
+                                    type: string
+                                    nullable: true
+                                required:
+                                  - startsTurn
+                                  - linkedTurnId
+                              - type: object
+                                properties:
+                                  kind:
+                                    type: string
+                                    enum:
+                                      - chat
+                                      - task_ack
+                                      - task_progress
+                                      - task_result
+                                      - clarify
+                                      - device_ack
+                                  interrupted:
+                                    description: The reply was interrupted; its transcript may include speech the user did not hear.
+                                    type: boolean
+                                  responseId:
+                                    type: string
+                                    nullable: true
+                                  linkedTurnId:
+                                    type: string
+                                    nullable: true
+                                required:
+                                  - kind
+                                  - interrupted
+                                  - responseId
+                                  - linkedTurnId
+                        required:
+                          - id
+                          - sessionId
+                          - turnId
+                          - role
+                          - content
+                          - createdAt
+                      userMessages:
+                        description:
+                          Canonical admitted user Messages in input order; includes accepted inputs interrupted
+                          before incorporation.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            sessionId:
+                              type: string
+                            turnId:
+                              type: string
+                            role:
+                              type: string
+                              enum:
+                                - user
+                                - assistant
+                            content:
+                              type: string
+                            createdAt:
+                              type: string
+                            inputContext:
+                              description:
+                                Server-recorded channel of a user input; clients cannot set it. Present on user
+                                Messages except Scheduler-triggered Turns and Messages saved before
+                                it existed; absent on assistant Messages. Tolerate channel values
+                                added later.
+                              oneOf:
+                                - type: object
+                                  properties:
+                                    channel:
+                                      type: string
+                                      enum:
+                                        - text
+                                  required:
+                                    - channel
+                                - type: object
+                                  properties:
+                                    channel:
+                                      type: string
+                                      enum:
+                                        - audio
+                                    utterance:
+                                      description:
+                                        Transcript of the user's own speech when the Message content is a task delegated from
+                                        it.
+                                      type: string
+                                      minLength: 1
+                                      maxLength: 8000
+                                    emotion:
+                                      description: Emotion the Realtime model perceived in the speech; not a verified fact.
+                                      type: object
+                                      properties:
+                                        label:
+                                          type: string
+                                          minLength: 1
+                                          maxLength: 64
+                                        confidence:
+                                          type: number
+                                          minimum: 0
+                                          exclusiveMinimum: false
+                                          maximum: 1
+                                          exclusiveMaximum: false
+                                        source:
+                                          type: string
+                                          enum:
+                                            - realtime_model
+                                      required:
+                                        - label
+                                        - confidence
+                                        - source
+                                    realtimeSummary:
+                                      description:
+                                        The Realtime model's own summary of the preceding voice conversation; model-written,
+                                        not a durable transcript. Interim field, removed once the
+                                        server derives this context.
+                                      type: string
+                                      minLength: 1
+                                      maxLength: 8000
+                                  required:
+                                    - channel
+                                - description:
+                                    "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                                    standing goal while a Realtime Connection was live; nobody typed
+                                    or spoke it."
+                                  type: object
+                                  properties:
+                                    channel:
+                                      type: string
+                                      enum:
+                                        - standing_task
+                                  required:
+                                    - channel
+                            realtime:
+                              oneOf:
+                                - type: object
+                                  properties:
+                                    startsTurn:
+                                      type: boolean
+                                    linkedTurnId:
+                                      type: string
+                                      nullable: true
+                                  required:
+                                    - startsTurn
+                                    - linkedTurnId
+                                - type: object
+                                  properties:
+                                    kind:
+                                      type: string
+                                      enum:
+                                        - chat
+                                        - task_ack
+                                        - task_progress
+                                        - task_result
+                                        - clarify
+                                        - device_ack
+                                    interrupted:
+                                      description: The reply was interrupted; its transcript may include speech the user did not hear.
+                                      type: boolean
+                                    responseId:
+                                      type: string
+                                      nullable: true
+                                    linkedTurnId:
+                                      type: string
+                                      nullable: true
+                                  required:
+                                    - kind
+                                    - interrupted
+                                    - responseId
+                                    - linkedTurnId
                           required:
                             - id
                             - sessionId
@@ -23748,7 +24797,8 @@ components:
                             description:
                               Server-recorded channel of a user input; clients cannot set it. Present on user
                               Messages except Scheduler-triggered Turns and Messages saved before it
-                              existed; absent on assistant Messages.
+                              existed; absent on assistant Messages. Tolerate channel values added
+                              later.
                             oneOf:
                               - type: object
                                 properties:
@@ -23803,6 +24853,55 @@ components:
                                     maxLength: 8000
                                 required:
                                   - channel
+                              - description:
+                                  "A Realtime Standing Task cycle: the platform started this Turn with the Template's
+                                  standing goal while a Realtime Connection was live; nobody typed
+                                  or spoke it."
+                                type: object
+                                properties:
+                                  channel:
+                                    type: string
+                                    enum:
+                                      - standing_task
+                                required:
+                                  - channel
+                          realtime:
+                            oneOf:
+                              - type: object
+                                properties:
+                                  startsTurn:
+                                    type: boolean
+                                  linkedTurnId:
+                                    type: string
+                                    nullable: true
+                                required:
+                                  - startsTurn
+                                  - linkedTurnId
+                              - type: object
+                                properties:
+                                  kind:
+                                    type: string
+                                    enum:
+                                      - chat
+                                      - task_ack
+                                      - task_progress
+                                      - task_result
+                                      - clarify
+                                      - device_ack
+                                  interrupted:
+                                    description: The reply was interrupted; its transcript may include speech the user did not hear.
+                                    type: boolean
+                                  responseId:
+                                    type: string
+                                    nullable: true
+                                  linkedTurnId:
+                                    type: string
+                                    nullable: true
+                                required:
+                                  - kind
+                                  - interrupted
+                                  - responseId
+                                  - linkedTurnId
                         required:
                           - id
                           - sessionId
@@ -25228,6 +26327,177 @@ components:
           nullable: true
       additionalProperties: false
       minProperties: 1
+    UpdateSessionRealtimeModelOpenApiDto:
+      type: object
+      properties:
+        realtimeModel:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+        - realtimeModel
+    RealtimeModelsResponseOpenApiDto:
+      type: object
+      properties:
+        defaultModel:
+          type: string
+          nullable: true
+        models:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              available:
+                type: boolean
+              isDefault:
+                type: boolean
+              languages:
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - zh-CN
+                    - en-US
+              endpointingModes:
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - client
+                    - server
+              audio:
+                type: object
+                properties:
+                  input:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: object
+                          properties:
+                            encoding:
+                              type: string
+                              enum:
+                                - pcm16
+                            sampleRate:
+                              type: integer
+                              minimum: 0
+                              exclusiveMinimum: true
+                            channels:
+                              type: number
+                              minimum: 1
+                              maximum: 1
+                          required:
+                            - encoding
+                            - sampleRate
+                            - channels
+                        - type: object
+                          properties:
+                            encoding:
+                              type: string
+                              enum:
+                                - opus
+                            sampleRate:
+                              type: integer
+                              minimum: 0
+                              exclusiveMinimum: true
+                            channels:
+                              type: number
+                              minimum: 1
+                              maximum: 1
+                            packetDurationMs:
+                              type: integer
+                              minimum: 0
+                              exclusiveMinimum: true
+                            bitrate:
+                              oneOf:
+                                - type: number
+                                  minimum: 16000
+                                  maximum: 16000
+                                - type: number
+                                  minimum: 24000
+                                  maximum: 24000
+                                - type: number
+                                  minimum: 32000
+                                  maximum: 32000
+                          required:
+                            - encoding
+                            - sampleRate
+                            - channels
+                            - packetDurationMs
+                  output:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: object
+                          properties:
+                            encoding:
+                              type: string
+                              enum:
+                                - pcm16
+                            sampleRate:
+                              type: integer
+                              minimum: 0
+                              exclusiveMinimum: true
+                            channels:
+                              type: number
+                              minimum: 1
+                              maximum: 1
+                          required:
+                            - encoding
+                            - sampleRate
+                            - channels
+                        - type: object
+                          properties:
+                            encoding:
+                              type: string
+                              enum:
+                                - opus
+                            sampleRate:
+                              type: integer
+                              minimum: 0
+                              exclusiveMinimum: true
+                            channels:
+                              type: number
+                              minimum: 1
+                              maximum: 1
+                            packetDurationMs:
+                              type: integer
+                              minimum: 0
+                              exclusiveMinimum: true
+                            bitrate:
+                              oneOf:
+                                - type: number
+                                  minimum: 16000
+                                  maximum: 16000
+                                - type: number
+                                  minimum: 24000
+                                  maximum: 24000
+                                - type: number
+                                  minimum: 32000
+                                  maximum: 32000
+                          required:
+                            - encoding
+                            - sampleRate
+                            - channels
+                            - packetDurationMs
+                required:
+                  - input
+                  - output
+            required:
+              - id
+              - label
+              - available
+              - isDefault
+              - languages
+              - endpointingModes
+              - audio
+      required:
+        - defaultModel
+        - models
 x-ti-generated-coverage:
   - method: GET
     path: /api/v1/hardware/connect
@@ -25364,25 +26634,25 @@ x-ti-generated-coverage:
   - method: DELETE
     path: /api/v1/mcp/servers/{serverId}/credential
   - method: GET
-    path: /api/v1/connectors
+    path: /api/v1/org/connectors
   - method: POST
-    path: /api/v1/connectors
+    path: /api/v1/org/connectors
   - method: GET
-    path: /api/v1/connectors/{connectorId}
+    path: /api/v1/org/connectors/{connectorId}
   - method: PATCH
-    path: /api/v1/connectors/{connectorId}
+    path: /api/v1/org/connectors/{connectorId}
   - method: POST
-    path: /api/v1/connectors/{connectorId}/activate
+    path: /api/v1/org/connectors/{connectorId}/activate
   - method: POST
-    path: /api/v1/connectors/{connectorId}/deactivate
+    path: /api/v1/org/connectors/{connectorId}/deactivate
   - method: GET
-    path: /api/v1/connectors/{connectorId}/credential
+    path: /api/v1/org/connectors/{connectorId}/credential
   - method: PUT
-    path: /api/v1/connectors/{connectorId}/credential
+    path: /api/v1/org/connectors/{connectorId}/credential
   - method: POST
-    path: /api/v1/connectors/{connectorId}/credential/rotate
+    path: /api/v1/org/connectors/{connectorId}/credential/rotate
   - method: DELETE
-    path: /api/v1/connectors/{connectorId}/credential
+    path: /api/v1/org/connectors/{connectorId}/credential
   - method: GET
     path: /api/v1/user/sessions
   - method: POST
@@ -25397,6 +26667,10 @@ x-ti-generated-coverage:
     path: /api/v1/user/sessions/{id}/billing-tag
   - method: PATCH
     path: /api/v1/user/sessions/{id}/model
+  - method: PATCH
+    path: /api/v1/user/sessions/{id}/realtime-model
+  - method: GET
+    path: /api/v1/realtime-models
   - method: DELETE
     path: /api/v1/user/sessions/{id}
   - method: POST

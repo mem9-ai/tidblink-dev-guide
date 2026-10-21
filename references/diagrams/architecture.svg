@@ -39,7 +39,7 @@ text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:#1f293
 <rect x="340" y="55" width="260" height="85" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
 <text x="356" y="80" class="c" style="font-weight:700">/api/v1/org/**</text>
 <text x="356" y="102" class="l" style="fill:#b45309">Organization API Key</text>
-<text x="356" y="124" class="s">Templates, End Users, User Keys</text>
+<text x="356" y="124" class="s">Templates, Users, Keys, Connectors</text>
 
 <rect x="340" y="180" width="260" height="190" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
 <text x="356" y="205" class="c" style="font-weight:700">/api/v1/user/**</text>
@@ -48,7 +48,7 @@ text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:#1f293
 <text x="356" y="277" class="s">POST …/events → receipt</text>
 <text x="356" y="301" class="s">GET …/events → SSE stream</text>
 <text x="356" y="325" class="s">POST …/realtime → connectToken</text>
-<text x="356" y="349" class="s">Register / activate Connectors</text>
+<text x="356" y="349" class="s">Read model catalogs</text>
 
 <rect x="340" y="400" width="260" height="130" rx="10" fill="var(--api)" stroke="var(--apis)" stroke-width="1.5"/>
 <text x="356" y="427" class="t">Realtime WebSocket</text>

@@ -23,13 +23,13 @@ Rules:
 - Generate one identity per logical action and persist it **before** sending. Retry an uncertain request with the same identity and the same body.
 - An identical replay returns the original result. The same identity with a different body returns `409` (`agent_creation_conflict`, `session_creation_conflict`, …).
 - Never replace an uncertain request with a new identity — that can duplicate the effect.
-- Secrets are not re-delivered: a lost User API Key needs rotation; a lost `connectorKey` needs `POST /api/v1/connectors/{id}/credential/rotate` with `expectedCurrentVersion` (while the Connector is inactive).
+- Secrets are not re-delivered: a lost User API Key needs rotation; a lost `connectorKey` needs `POST /api/v1/org/connectors/{id}/credential/rotate` with `expectedCurrentVersion` (while the Connector is inactive).
 - End User creation has no idempotency key: recover by listing `GET /api/v1/org/users` and matching `externalId`.
 
 ## Versions and ETags
 
 - Template replacement (`PUT /api/v1/org/agent-templates/{templateId}`) needs the exact quoted `ETag` in `If-Match`. Missing → `428 precondition_required`; stale → `412 precondition_failed`. Read the Template again, reapply the change, and use a new `Idempotency-Key`.
-- Connector registration changes (`PATCH`, `activate`, `deactivate`) use `expectedConnectorVersion` in the body; after a `409`, read the Connector and retry with its current version. Credential rotation uses `expectedCurrentVersion`, the `currentVersion` from `GET /api/v1/connectors/{id}/credential`.
+- Connector registration changes (`PATCH`, `activate`, `deactivate`) use `expectedConnectorVersion` in the body; on a version conflict, read the Connector and reapply the change with its current version. For `409` with no ready tunnel connection, check transport readiness and replica routing instead; see the [tunnel limitation](protocols/connectors.md#multi-replica-limit). Credential rotation uses `expectedCurrentVersion`, the `currentVersion` from `GET /api/v1/org/connectors/{id}/credential`.
 - A receipt is a historical fact, not current state; it never provides a fresh ETag or version.
 
 ## Retry decisions
@@ -63,7 +63,7 @@ Tool Operations expose fixed text only, with `details.tool` and `details.categor
 
 ## Diagnose an API failure
 
-1. Remove secrets, then record the status, error envelope (`error.code`, `error.message`, `error.details`), method and path, `x-request-id`, response headers and relevant SSE events.
+1. Remove secrets, then record the status, error envelope (`error.code`, `error.message`, `error.details`), method and path, a request/correlation id **if the deployment returns one**, UTC timestamp, response headers and relevant SSE events.
 2. Locate the operation, the response status and the `ErrorEnvelope` `code` in `openapi.yaml`.
 3. Compare credential family, target ownership, headers, body schema, ETag or version, and idempotency identity.
 4. For a Session command, read its receipt and Turn.
@@ -72,7 +72,7 @@ Tool Operations expose fixed text only, with `details.tool` and `details.categor
 | HTTP | `error.code` | Meaning |
 | --- | --- | --- |
 | `401` | `authentication_required` | Missing, invalid, revoked or rotated key. |
-| `403` | `user_api_key_required` and similar | Wrong credential family for this operation. |
+| `403` | `auth_kind_forbidden`, `user_api_key_required` and similar | Wrong credential family for this operation. |
 | `400` | `validation_error`, `idempotency_key_required`, `invalid_idempotency_key` | Request does not match the schema or header rules. |
 | `404` | `resource_not_found`, `session_not_found`, … | Missing, foreign or hidden target. |
 | `409` | `…_conflict`, `model_provider_unconfigured`, `realtime_not_enabled`, `realtime_connection_live` | Identity reuse with different content, or a state conflict. |

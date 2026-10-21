@@ -1,8 +1,8 @@
 # Connectors
 
-> Bundled from the TiDB Link documentation (`mem9-ai/agent-stack` `main` @ `4734a32`, `apps/site/src/content/docs/docs/guides/`). Lightly adapted: links point into this kit, and the version rules were clarified against the contract.
+> Adapted from the TiDB Link documentation and checked against the upstream contract and implementation recorded in [upstream.md](../upstream.md).
 
-A **Connector** registers a tool server you operate, so Agents built on your Templates can call its tools. Unlike a plain MCP Server registration, every Connector `tools/call` carries a per-call [Call Context](#call-context): your server learns which Session it serves and maps that Session to your own user records. Connectors belong to your Organization and are managed with a User API Key of an active End User; see [authentication](../development-path.md#stage-2-provision-users).
+A **Connector** registers a tool server you operate, so Agents built on your Templates can call its tools. Unlike a plain MCP Server registration, every Connector `tools/call` carries a per-call [Call Context](#call-context): your server learns which Session it serves and maps that Session to your own user records. Connectors belong to your Organization and are managed with an **Organization API Key**; see [setup](../development-path.md#stage-0-setup). User API Keys cannot manage Connectors (`403`). The old `/api/v1/connectors` management route is removed (`404`); only the Connector-Key WebSocket remains at `/api/v1/connectors/ws`.
 
 Two transports cover both reachability directions:
 
@@ -15,11 +15,11 @@ Both transports speak MCP with the roles fixed: the platform is always the MCP c
 
 ## Register and activate
 
-Register with a User API Key. A `streamable_http` Connector requires `endpointUrl`; a `tunnel` Connector takes none:
+Register with an Organization API Key. A `streamable_http` Connector requires `endpointUrl`; a `tunnel` Connector takes none:
 
 ```bash
-curl -X POST https://<your-agent-service-host>/api/v1/connectors \
-  -H "Authorization: Bearer $USER_API_KEY" \
+curl -X POST "$TIDB_LINK_BASE_URL/api/v1/org/connectors" \
+  -H "Authorization: Bearer $TIDB_LINK_ORG_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"displayName":"Orders","transport":"streamable_http","endpointUrl":"https://tools.example.com/mcp"}'
 ```
@@ -31,30 +31,28 @@ curl -X POST https://<your-agent-service-host>/api/v1/connectors \
 Activation discovers your tool catalog and freezes it for use:
 
 ```bash
-curl -X POST https://<your-agent-service-host>/api/v1/connectors/<connectorId>/activate \
-  -H "Authorization: Bearer $USER_API_KEY" \
+curl -X POST "$TIDB_LINK_BASE_URL/api/v1/org/connectors/<connectorId>/activate" \
+  -H "Authorization: Bearer $TIDB_LINK_ORG_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"expectedConnectorVersion":1}'
 ```
 
-Discovery lists your tools over the declared transport — for `tunnel`, over your first ready tunnel connection, so connect an instance before activating; with none ready, activation is refused with `409`. A catalog holds at most 200 tools and each input schema at most 64 KiB. `expectedConnectorVersion` is optimistic concurrency for registration changes: `PATCH`, `activate` and `deactivate` require the current version and bump it. After a `409`, read the Connector again and retry with its current version. Credential rotation uses the credential's own counter instead (see below).
+Discovery lists your tools over the declared transport — for `tunnel`, over your first ready tunnel connection, so connect an instance before activating; with none ready, activation is refused with `409`. A catalog holds at most 200 tools and each input schema at most 64 KiB. `expectedConnectorVersion` is optimistic concurrency for registration changes: `PATCH`, `activate` and `deactivate` require the current version and bump it. On a version conflict, read the Connector again and reapply the change with its current version. A `409` saying there is no ready tunnel connection requires fixing readiness/routing first; changing the version will not fix it. Credential rotation uses the credential's own counter instead (see below).
 
 While a Connector is **active**, edits (`PATCH`) and every credential mutation are refused with `409`, so live Agents never observe a half-mutated registration. Deactivate to reconfigure:
 
 ```bash
-curl -X POST https://<your-agent-service-host>/api/v1/connectors/<connectorId>/deactivate \
-  -H "Authorization: Bearer $USER_API_KEY" \
+curl -X POST "$TIDB_LINK_BASE_URL/api/v1/org/connectors/<connectorId>/deactivate" \
+  -H "Authorization: Bearer $TIDB_LINK_ORG_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"expectedConnectorVersion":2}'
 ```
 
 Deactivation takes the Connector's tools offline: dispatches against runs frozen before re-activation fail with `provider_unavailable`, and new Turns freeze the current registration after you re-activate.
 
-Reference the Connector from a Template exactly like an MCP Server registration, through `tools.mcp`:
+Reference the Connector using the Console Template editor's **MCP & Connectors** section; follow [step 12](../development-path.md#stage-3-connect-devices). This requires a Console account with Template edit permission in the same Organization, which MSP provisioning does not automatically create.
 
-```json
-{ "tools": { "mcp": [{ "serverId": "conn_…" }] } }
-```
+The internal reference is `tools.mcp: [{serverId: "conn_…"}]`, but it is **not** accepted by the Organization Template API. That API rejects `content.tools` with `400 validation_error`, hides it on reads, and preserves existing Console-managed references on `PUT`. Do not copy the internal shape into an Org API request.
 
 Only active Connectors of the same Organization can be referenced; a Template save that names anything else fails with `409 agent_template_dependency_unavailable`. The model calls each tool as `mcp_<server>__<tool>`, both parts derived from the discovered server and tool names (lowercased, non-alphanumerics collapsed to `_`) — the same naming partition as MCP Server tools.
 
@@ -129,7 +127,7 @@ The platform never retries automatically. After `timeout` or `result_unknown`, r
 
 ## Credential rotation and revocation
 
-`GET /api/v1/connectors/<connectorId>/credential` returns credential metadata only (`credentialBindingId`, `currentVersion`, `active`) — never the key.
+`GET /api/v1/org/connectors/<connectorId>/credential` returns credential metadata only (`credentialBindingId`, `currentVersion`, `active`) — never the key.
 
 - **Rotate**: `POST …/credential/rotate` with `{"expectedCurrentVersion":<n>}`, where `<n>` is `currentVersion` from the credential `GET`, returns the new key exactly once and advances `currentVersion`. The old key stops working immediately.
 - **Revoke**: `DELETE …/credential` returns `204`, including when no credential exists.
@@ -170,11 +168,28 @@ Requests initiated by your side close the socket. The close codes:
 
 The platform pings every 20 seconds and disconnects after two missed pongs; the `ws` library answers pings automatically, so a healthy process needs no heartbeat code. Reconnect with backoff after any close. A `4008` means another process connected with your instance id — usually a deliberate second deployment; back off rather than fighting it in a tight loop. Refusals before the upgrade are plain HTTP: `400` for a malformed upgrade, `426` for a non-WebSocket request, `429` while the replica is at its admission limit, `503` while the gateway is stopping.
 
-Run as many instances as you need: calls ride any ready connection, and a reconnecting instance atomically replaces its own stale connection, so deploys and crashes converge in seconds. With **no** ready instance, calls fail immediately with `provider_unavailable` — nothing is queued platform-side.
+### Multi-replica limit
+
+Tunnel sockets are **local to the platform replica that accepted them**. Activation and tool dispatch can use only ready connections on the replica executing that work. A same-instance reconnect replaces the old connection only within that replica.
+
+On a deployment with multiple API replicas, one connected device-server instance is not sufficient: activation can return `409` with `Connector has no ready tunnel connection` when routed elsewhere. Tool dispatch can likewise fail with `provider_unavailable`. The Tencent validation observed 3 activation failures in 10 attempts with a continuously connected tunnel; tool dispatch was not tested because the Template could not be attached without Console access. That rate is an observation, not a platform guarantee.
+
+For this guide, prefer **`streamable_http`** on multi-replica deployments. If a tunnel is required, have the operator provide a single-replica test deployment or ensure both discovery and actual tool execution reach a replica holding a ready connection. HTTP session affinity alone does not establish worker/Turn routing. Opening several randomly balanced sockets or retrying activation until it succeeds is not a reliability guarantee. See the pinned [runtime ownership inventory](https://github.com/mem9-ai/agent-stack/blob/a32727a543c1b62a569efc177994a97bf6a7fbed/docs/architecture/multi-replica-runtime-ownership.md#pod-local-state).
+
+With no ready connection on the executing replica, calls fail immediately; nothing is queued platform-side.
 
 ## Worked examples
 
 Both examples use the official MCP TypeScript SDK v2 (`@modelcontextprotocol/server`) and implement one tool, `list_orders`, that authorizes from the Call Context. In the SDK, the tool handler's context carries the request's `_meta` at `ctx.mcpReq._meta`.
+
+In your Node.js project, install the SDK and example dependencies:
+
+```bash
+npm install @modelcontextprotocol/server@2.3.1 @modelcontextprotocol/node@2.1.1 ws zod
+npm install --save-dev typescript tsx @types/node @types/ws
+```
+
+Save the selected example as a `.ts` file and run it with `npx tsx <file>.ts` after supplying `CONNECTOR_KEY` through your secret manager/environment. These are integration skeletons: implement `yourAccounts.lookupBySessionId` and `yourOrders.listRecent` against your backend's records. The tunnel example reuses `buildServer` from the HTTP example; use its shared server definitions without starting the HTTP listener. Terminate TLS in front of the HTTP example's port 8080 to obtain the required public HTTPS endpoint.
 
 ### streamable_http
 

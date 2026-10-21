@@ -25,9 +25,11 @@ Load only the references the request reaches. The route is complete when every r
 
 The development path is the supported way to build. The contract also contains operations this guide does not cover — platform Hardware (Hardware Models, inventory, Registrations, Bindings, `/api/v1/hardware/connect`), Client Tools, MCP Server registrations, Scheduler, Drive files, Billing. Connect hardware through the developer's own device server registered as a Connector, not through platform Hardware routes. When a developer asks for an uncovered capability, say it is outside this guide, then answer only from the operation's contract without presenting it as the recommended path.
 
+Before Stage 3, confirm a Console account can edit Templates in the same Organization. MSP provisioning does not create that membership. The Organization Template API rejects `content.tools`; never propose `tools.mcp` in an Org API body. Prefer `streamable_http` on multi-replica deployments; tunnel readiness is replica-local.
+
 ## Treat the contract as evidence
 
-For each operation, verify its method, path, operation-level `security`, headers, request schema, success response and documented errors. Operation-level security controls that operation; each operation's `description` begins with `Authorization: …`. When two parts of the contract disagree, state the conflict and follow the operation-specific definition. When an operation lists a status without a description or error code, call out the gap instead of inventing meaning.
+The bundled contract is pinned to the revision in [references/upstream.md](references/upstream.md); a deployment can lag behind it. For each operation, verify its method, path, operation-level `security`, headers, request schema, success response and documented errors. Operation-level security controls that operation; authorization is also described in the operation's `description`. When two parts of the contract disagree, state the conflict and follow the operation-specific definition. When an operation lists a status without a description or error code, call out the gap instead of inventing meaning.
 
 ## Know the credentials
 
@@ -35,8 +37,8 @@ The persisted credential determines Organization and End User scope. No header, 
 
 | Credential | Format | Use |
 | --- | --- | --- |
-| Organization API Key | `ti_org_<id>_<secret>` | `/api/v1/org/**`: Templates, Organization Skills, End Users, User API Keys. Never acts as a user. |
-| User API Key | `ti_user_<id>_<secret>` | One End User's Agents and Sessions under `/api/v1/user/**`, plus `/api/v1/connectors/**` and `/api/v1/agent-models`. |
+| Organization API Key | `ti_org_<id>_<secret>` | `/api/v1/org/**`: Templates, Organization Skills, End Users, User API Keys, Connector registration and credentials. Never acts as a user. |
+| User API Key | `ti_user_<id>_<secret>` | One End User's Agents and Sessions under `/api/v1/user/**`, plus `/api/v1/agent-models` and `/api/v1/realtime-models`. |
 | Connector Key | opaque | The developer's device server: verifies platform calls (`streamable_http`) or opens `/api/v1/connectors/ws` (`tunnel`). |
 | Realtime `connectToken` | short-lived | One `session.connect` on the Realtime WebSocket, valid 60 seconds. |
 | Console session | browser cookie | Console only — never part of an API integration. |
